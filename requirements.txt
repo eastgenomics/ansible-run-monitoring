@@ -1,0 +1,15 @@
+argcomplete==1.12.3
+certifi==2021.10.8
+cffi==1.15.0
+chardet==3.0.4
+cryptography==2.9.2
+dxpy==0.315.0
+idna==2.10
+psutil==5.8.0
+pycparser==2.21
+python-dateutil==2.8.2
+python-dotenv==0.19.1
+requests==2.23.0
+six==1.16.0
+urllib3==1.25.11
+websocket-client==0.53.0
