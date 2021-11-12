@@ -4,7 +4,9 @@ import dxpy as dx
 import os
 import sys
 import yaml
+import smtplib
 
+SMTP_SERVER = smtplib.SMTP('smtp.net.addenbrookes.nhs.uk', 25)
 
 load_dotenv()
 
@@ -83,9 +85,20 @@ def main():
     print('Before dx filtering: {}'.format(len(duplicates)))
     print('After dx filtering: {}'.format(len(final_duplicates)))
 
+    duplicates_dir = []
+
     for file in final_duplicates:
-        print('/genetics/{}/{}'.format(file.split('_')[1], file))
-        print('/var/log/dx-streaming-upload/{}/run.{}.lane.all.log'.format(file.split('_')[1], file))
+        duplicates_dir.append('/genetics/{}/{}'.format(file.split('_')[1], file))
+        duplicates_dir.append('/var/log/dx-streaming-upload/{}/run.{}.lane.all.log'.format(file.split('_')[1], file))
+
+    sender = 'BioinformaticsTeamGeneticsLab@addenbrookes.nhs.uk'
+    receiver = 'jason.ling@addenbrookes.nhs.uk'
+    message = 'Subject: Completed Runs (Ansible Server)\n\n' + '\n'.join(duplicates_dir) + '\n\n'
+
+    print(message)
+
+    SMTP_SERVER.sendmail(sender, receiver, message)
+    SMTP_SERVER.quit()
 
 if __name__ == "__main__":
     main()
