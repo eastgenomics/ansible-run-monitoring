@@ -53,8 +53,8 @@ def main():
 
     # defining directories in docker container
     # Directories need to be mounted with docker run -v
-    GENETIC_DIR = '/var/genetics'
-    LOGS_DIR = '/var/log/dx-streaming-upload'
+    GENETIC_DIR = 'var/genetics'
+    LOGS_DIR = 'var/log/dx-streaming-upload'
 
     duplicates = []
     final_duplicates = []
@@ -76,14 +76,16 @@ def main():
 
         # if project not in return object, we leave it alone (continue)
         if not list(dxes):
-            print('Project {} x found'.format(project))
             continue
         else:
-            print('Project {} -> found'.format(project))
             final_duplicates.append(project)
 
     print('Before dx filtering: {}'.format(len(duplicates)))
     print('After dx filtering: {}'.format(len(final_duplicates)))
+
+    for file in final_duplicates:
+        print('/genetics/{}/{}'.format(file.split('_')[1], file))
+        print('/var/log/dx-streaming-upload/{}/run.{}.lane.all.log'.format(file.split('_')[1], file))
 
 if __name__ == "__main__":
     main()

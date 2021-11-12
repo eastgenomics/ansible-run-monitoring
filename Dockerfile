@@ -7,7 +7,7 @@ WORKDIR /
 COPY requirements.txt requirements.txt
 RUN pip install -r requirements.txt
 
-COPY main.py .env /
+COPY main.py .env seq.yml /
 
 ENV HTTP_PROXY="http://proxy.net.addenbrookes.nhs.uk:8080"
 ENV HTTPS_PROXY="https://proxy.net.addenbrookes.nhs.uk:8080"
