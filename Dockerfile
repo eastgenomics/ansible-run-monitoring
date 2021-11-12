@@ -1,12 +1,15 @@
 # syntax=docker/dockerfile:1
 
-FROM python:3.8-slim-buster
+FROM python:2.7-slim-buster
 
 WORKDIR /
 
 COPY requirements.txt requirements.txt
-RUN pip3 install -r requirements.txt
+RUN pip install -r requirements.txt
 
-COPY . .
+COPY main.py .env /
 
-CMD [ "python3", "main.py"]
+ENV HTTP_PROXY="http://proxy.net.addenbrookes.nhs.uk:8080"
+ENV HTTPS_PROXY="https://proxy.net.addenbrookes.nhs.uk:8080"
+
+CMD [ "python", "main.py"]

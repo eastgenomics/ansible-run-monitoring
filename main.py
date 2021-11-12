@@ -3,10 +3,15 @@ import dxpy as dx
 
 import os
 import sys
+import yaml
+
 
 load_dotenv()
 
+
 def dx_login():
+
+    """ Authenticate login user for dxpy function either by .env file variable or docker environment """
 
     if len(sys.argv) > 1:
         # config / env file passed as arg
@@ -21,8 +26,6 @@ def dx_login():
                 'auth token could not be retrieved from environment and no .env file passed'
             )
 
-    print(f'Authentication Token: {AUTH_TOKEN}')
-
     # env variable for dx authentication
     DX_SECURITY_CONTEXT = {
         "auth_token_type": "Bearer",
@@ -32,38 +35,55 @@ def dx_login():
     # set token to env
     dx.set_security_context(DX_SECURITY_CONTEXT)
 
-dx_login()
+def read_yaml(file_path):
 
-WORKING_DIR = os.path.dirname(os.path.realpath(__file__))
+    """ Function to read yaml config file (e.g. seq.yml) """
 
-print(f'Current Working Directory: {WORKING_DIR}')
+    with open(file_path, "r") as f:
+        return yaml.safe_load(f)['seq']
 
-seq = ['A01295', 'A01303']
 
-GENETIC_DIR = f'{WORKING_DIR}/genetics'
-LOGS_DIR = f'{WORKING_DIR}/var/log/dx-streaming-upload'
+# define number of seqs
+seq = read_yaml('seq.yml')
 
-duplicates = []
-final_duplicates = []
 
-for file in seq:
-    gene_dir = f'{GENETIC_DIR}/{file}'
-    logs_dir = f'{LOGS_DIR}/{file}'
+def main():
 
-    temp_duplicates = set([x.strip() for x in os.listdir(gene_dir)]) & set([x.split('.')[1] for x in os.listdir(logs_dir)])
+    dx_login()
 
-    duplicates += list(temp_duplicates)
+    # defining directories in docker container
+    # Directories need to be mounted with docker run -v
+    GENETIC_DIR = '/var/genetics'
+    LOGS_DIR = '/var/log/dx-streaming-upload'
 
-for project in duplicates:
+    duplicates = []
+    final_duplicates = []
 
-    dxes = dx.search.find_projects(name=f"002_{project}_\D+", name_mode="regexp")
+    # loop through each file in /genetics/<SEQ> and /var/log/dx-stream-upload/<SEQ>
+    for file in seq:
+        gene_dir = '{}/{}'.format(GENETIC_DIR, file)
+        logs_dir = '{}/{}'.format(LOGS_DIR, file)
 
-    if not list(dxes):
-        print(f'Project {project} not found')
-        continue
-    else:
-        print(f'Project {project} --> found')
-        final_duplicates.append(project)
+        # get the duplicates between two directories /genetics & /var/log/.. with sets
+        temp_duplicates = set([x.strip() for x in os.listdir(gene_dir)]) & set([x.split('.')[1] for x in os.listdir(logs_dir)])
 
-print(f'Before dx filtering: {len(duplicates)}')
-print(f'After dx filtering: {len(final_duplicates)}')
+        duplicates += list(temp_duplicates)
+
+    # find out if a run has been created for the project in dnanexus
+    for project in duplicates:
+
+        dxes = dx.search.find_projects(name="002_{}_\D+".format(project), name_mode="regexp")
+
+        # if project not in return object, we leave it alone (continue)
+        if not list(dxes):
+            print('Project {} x found'.format(project))
+            continue
+        else:
+            print('Project {} -> found'.format(project))
+            final_duplicates.append(project)
+
+    print('Before dx filtering: {}'.format(len(duplicates)))
+    print('After dx filtering: {}'.format(len(final_duplicates)))
+
+if __name__ == "__main__":
+    main()
