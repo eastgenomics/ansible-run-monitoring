@@ -25,6 +25,19 @@ Running the container requires mounting of two directories from local filesystem
 **Current tested command**: ``` docker run --env-file <env.txt> -v /genetics:/var/genetics -v /var/log:/var/log  <image name> ```
 
 
+## Config Env Variables
+
+1. ```ENV_GENETICDIR```: the directory to look into for original genetic run. **This should be directory in docker container**
+2. ```ENV_LOGSDIR```: the directory to look into for uploaded run logs **This should be directory in docker container**
+3. ```ENV_SENDER```: the 'from' for email function (e.g. BioinformaticsTeamGeneticsLab@addenbrookes.nhs.uk)
+4. ```ENV_RECEIVERS```: the 'send to' for email function, **use comma to include more emails** (e.g. abc@email.com, bbc@email.com)
+5. ```ENV_SERVER```: server host (str) for smtp email function
+6. ```ENV_PORT```: port number for smtp email function
+7. ```ENV_SEQ```: sequencing machine, **use comma to include more machines** (e.g. a01295, a01303, a1405)
+8. ```HTTP_PROXY```: http proxy
+9. ```HTTPS_PROXY```: https proxy
+
+
 ## Automation
 
 It is written to run periodically (e.g. every 3 months) to find delete-able runs in ```/genetics``` <br> using crons.
