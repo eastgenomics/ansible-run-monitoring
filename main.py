@@ -12,14 +12,10 @@ def main():
 
     dx_login()
 
-    # default GENETIC_DIR = 'var/genetics'
-    # default LOGS_DIR = 'var/log/dx-streaming-upload'
+    #defining environment variables
     GENETIC_DIR = os.environ['ENV_GENETICDIR']
     LOGS_DIR = os.environ['ENV_LOGSDIR']
 
-    # receiver can be multiple emails (list of emails)
-    # sender = 'BioinformaticsTeamGeneticsLab@addenbrookes.nhs.uk'
-    # receiver = ['jason.ling@addenbrookes.nhs.uk']
     sender = os.environ['ENV_SENDER']
     receivers =os.environ['ENV_RECEIVERS']
     receivers = receivers.split(',') if ',' in receivers else [receivers]
@@ -53,11 +49,12 @@ def main():
         # save return object into an external variable for later manipulation
         return_obj = list(dxes)
 
-        # if return, we know the proj exist in dnaNexus: append to final_duplicates []
+        # if return=True, we know the proj exist in dnaNexus: append to final_duplicates list
         # append most describe=True data to table_data (list of tuples): for dataframe creation later
         if return_obj:
             proj_des = return_obj[0]['describe']
 
+            # convert millisec from Epoch datetime to readable human format
             created_date = datetime.datetime.fromtimestamp(proj_des['created'] / 1000.0).strftime('%Y-%m-%d')
             
             table_data.append(

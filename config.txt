@@ -1,0 +1,7 @@
+ENV_GENETICDIR=/var/genetics
+ENV_LOGSDIR=/var/log/dx-streaming-upload
+ENV_SENDER=BioinformaticsTeamGeneticsLab@addenbrookes.nhs.uk
+ENV_RECEIVERS=jason.ling@addenbrookes.nhs.uk
+ENV_SERVER=smtp.net.addenbrookes.nhs.uk
+ENV_PORT=25
+ENV_SEQ=A01295,A01303
