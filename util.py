@@ -1,6 +1,5 @@
 import os
 import sys
-import yaml
 import smtplib
 from os.path import basename
 from email.mime.application import MIMEApplication
@@ -40,13 +39,6 @@ def dx_login():
     # set token to env
     dx.set_security_context(DX_SECURITY_CONTEXT)
 
-def read_yaml(file_path):
-
-    """ Function to read yaml config file (e.g. seq.yml) """
-
-    with open(file_path, "r") as f:
-        return yaml.safe_load(f)['seq']
-
 def send_mail(send_from, send_to, subject, df, files=None):
 
     """ Function to send email. Require send_to (list) and file (list) """
@@ -59,12 +51,12 @@ def send_mail(send_from, send_to, subject, df, files=None):
     text = """
         Hi,
 
-        Here's the data:
+        Here's the data for duplicated runs found in /genetics & /var/log/dx-streaming-uploads & dnaNexus:
 
         {table}
 
         Kind Regards,
-        Beep~
+        Beep Robot
 
     """
 
@@ -77,10 +69,10 @@ def send_mail(send_from, send_to, subject, df, files=None):
         </style>
         </head>
         <body><p>Hi</p>
-        <p>Here is the data:</p>
+        <p>Here's the data for duplicated runs found in /genetics & /var/log/dx-streaming-uploads & dnaNexus:</p>
         {table}
         <p>Kind Regards</p>
-        <p>Beep~</p>
+        <p>Beep Robot~</p>
         </body></html>
     """
 
@@ -108,7 +100,9 @@ def send_mail(send_from, send_to, subject, df, files=None):
         part['Content-Disposition'] = 'attachment; filename="%s"' % basename(f)
         msg.attach(part)
 
+    SERVER = os.environ['ENV_SERVER'] # smtp.net.addenbrookes.nhs.uk
+    PORT = int(os.environ['ENV_PORT']) # 25
 
-    smtp = smtplib.SMTP('smtp.net.addenbrookes.nhs.uk', 25)
+    smtp = smtplib.SMTP(SERVER, PORT)
     smtp.sendmail(send_from, send_to, msg.as_string())
     smtp.quit()
