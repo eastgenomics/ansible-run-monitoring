@@ -9,7 +9,4 @@ RUN pip install -r requirements.txt
 
 COPY main.py .env util.py /
 
-ENV HTTP_PROXY="http://proxy.net.addenbrookes.nhs.uk:8080"
-ENV HTTPS_PROXY="https://proxy.net.addenbrookes.nhs.uk:8080"
-
 CMD [ "python", "main.py"]
