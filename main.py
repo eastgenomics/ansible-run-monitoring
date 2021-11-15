@@ -5,8 +5,15 @@ import os
 import sys
 import yaml
 import smtplib
+from os.path import basename
+from email.mime.application import MIMEApplication
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from email.utils import COMMASPACE, formatdate
+from tabulate import tabulate
+import pandas as pd
+import datetime
 
-SMTP_SERVER = smtplib.SMTP('smtp.net.addenbrookes.nhs.uk', 25)
 
 load_dotenv()
 
@@ -44,6 +51,71 @@ def read_yaml(file_path):
     with open(file_path, "r") as f:
         return yaml.safe_load(f)['seq']
 
+def send_mail(send_from, send_to, subject, df, files=None):
+
+    """ Function to send email. Require send_to (list) and file (list) """
+
+    assert isinstance(send_to, list)
+
+    # msg = MIMEMultipart()
+
+    # email messge content
+    text = """
+        Hi,
+
+        Here's the data:
+
+        {table}
+
+        Kind Regards,
+        Beep~
+
+    """
+
+    html = """
+        <html>
+        <head>
+        <style> 
+        table, th, td {{ border: 1px solid black; border-collapse: collapse; }}
+        th, td {{ padding: 5px; }}
+        </style>
+        </head>
+        <body><p>Hi</p>
+        <p>Here is the data:</p>
+        {table}
+        <p>Kind Regards</p>
+        <p>Beep~</p>
+        </body></html>
+    """
+
+    col_header = list(df.columns.values)
+    text = text.format(table=tabulate(df, headers=col_header, tablefmt="grid"))
+    html = html.format(table=tabulate(df, headers=col_header, tablefmt="html"))
+    
+    msg = MIMEMultipart(
+        "alternative", None, [MIMEText(text), MIMEText(html,'html')])
+
+    # email headers
+    msg['From'] = send_from
+    msg['To'] = COMMASPACE.join(send_to)
+    msg['Date'] = formatdate(localtime=True)
+    msg['Subject'] = subject
+
+    # email message attachment
+    for f in files or []:
+        with open(f, "rb") as fil:
+            part = MIMEApplication(
+                fil.read(),
+                Name=basename(f)
+            )
+        # After the file is closed
+        part['Content-Disposition'] = 'attachment; filename="%s"' % basename(f)
+        msg.attach(part)
+
+
+    smtp = smtplib.SMTP('smtp.net.addenbrookes.nhs.uk', 25)
+    smtp.sendmail(send_from, send_to, msg.as_string())
+    smtp.quit()
 
 # define number of seqs
 seq = read_yaml('seq.yml')
@@ -60,6 +132,7 @@ def main():
 
     duplicates = []
     final_duplicates = []
+    table_data = []
 
     # loop through each file in /genetics/<SEQ> and /var/log/dx-stream-upload/<SEQ>
     for file in seq:
@@ -73,32 +146,46 @@ def main():
 
     # find out if a run has been created for the project in dnanexus
     for project in duplicates:
+        
+        # careful generator object only allows one read, similar to python3 map generator object
+        dxes = dx.search.find_projects(name="002_{}_\D+".format(project), name_mode="regexp", describe=True)
+        return_obj = list(dxes)
 
-        dxes = dx.search.find_projects(name="002_{}_\D+".format(project), name_mode="regexp")
+        if return_obj:
+            proj_des = return_obj[0]['describe']
+            
+            table_data.append(
+                (project, datetime.datetime.fromtimestamp(proj_des['created'] / 1000.0).strftime('%Y-%m-%d'), '{} GB'.format(round(proj_des['dataUsage'])), proj_des['createdBy']['user'], proj_des['storageCost'])
+                )
 
-        # if project not in return object, we leave it alone (continue)
-        if not list(dxes):
-            continue
-        else:
             final_duplicates.append(project)
-
-    print('Before dx filtering: {}'.format(len(duplicates)))
-    print('After dx filtering: {}'.format(len(final_duplicates)))
 
     duplicates_dir = []
 
+    # create the directories path for each runs (genetics & logs)
     for file in final_duplicates:
         duplicates_dir.append('/genetics/{}/{}'.format(file.split('_')[1], file))
         duplicates_dir.append('/var/log/dx-streaming-upload/{}/run.{}.lane.all.log'.format(file.split('_')[1], file))
 
+    # saving the directories into txt file
+    with open('duplicates.txt', 'w') as f:
+        f.write('\n'.join(duplicates_dir))
+
+
+    df = pd.DataFrame(table_data, columns =['Project Name', 'Created', 'Data Usage', 'Created By', 'Storage Cost'])
+
+    print(df.head())
+
     sender = 'BioinformaticsTeamGeneticsLab@addenbrookes.nhs.uk'
-    receiver = 'jason.ling@addenbrookes.nhs.uk'
-    message = 'Subject: Completed Runs (Ansible Server)\n\n' + '\n'.join(duplicates_dir) + '\n\n'
+    receiver = ['jason.ling@addenbrookes.nhs.uk']
 
-    print(message)
-
-    SMTP_SERVER.sendmail(sender, receiver, message)
-    SMTP_SERVER.quit()
+    send_mail(
+        sender,
+        receiver,
+        'Ansible Run (Deletion)', 
+        df, 
+        ['duplicates.txt']
+    )
 
 if __name__ == "__main__":
     main()
