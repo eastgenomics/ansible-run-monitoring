@@ -6,6 +6,7 @@ from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.utils import COMMASPACE, formatdate
+from pandas.core.frame import DataFrame
 from tabulate import tabulate
 
 from dotenv import load_dotenv
@@ -13,9 +14,10 @@ import dxpy as dx
 
 load_dotenv()
 
+
 def dx_login():
 
-    """ Authenticate login user for dxpy function either by .env file variable or docker environment """
+    """ Dxpy login user for dxpy function either by .env file or docker env """
 
     if len(sys.argv) > 1:
         # config / env file passed as arg
@@ -39,7 +41,14 @@ def dx_login():
     # set token to env
     dx.set_security_context(DX_SECURITY_CONTEXT)
 
-def send_mail(send_from, send_to, subject, df, files=None):
+
+def send_mail(
+        send_from: str,
+        send_to: list,
+        subject: str,
+        df: DataFrame,
+        files=None
+        ) -> None:
 
     """ Function to send email. Require send_to (list) and file (list) """
 
@@ -63,7 +72,7 @@ def send_mail(send_from, send_to, subject, df, files=None):
     html = """
         <html>
         <head>
-        <style> 
+        <style>
         table, th, td {{ border: 1px solid black; border-collapse: collapse; }}
         th, td {{ padding: 5px; }}
         </style>
@@ -79,9 +88,9 @@ def send_mail(send_from, send_to, subject, df, files=None):
     col_header = list(df.columns.values)
     text = text.format(table=tabulate(df, headers=col_header, tablefmt="grid"))
     html = html.format(table=tabulate(df, headers=col_header, tablefmt="html"))
-    
+
     msg = MIMEMultipart(
-        "alternative", None, [MIMEText(text), MIMEText(html,'html')])
+        "alternative", None, [MIMEText(text), MIMEText(html, 'html')])
 
     # email headers
     msg['From'] = send_from
@@ -100,8 +109,8 @@ def send_mail(send_from, send_to, subject, df, files=None):
         part['Content-Disposition'] = 'attachment; filename="%s"' % basename(f)
         msg.attach(part)
 
-    SERVER = os.environ['ENV_SERVER'] # smtp.net.addenbrookes.nhs.uk
-    PORT = int(os.environ['ENV_PORT']) # 25
+    SERVER = os.environ['ENV_SERVER']
+    PORT = int(os.environ['ENV_PORT'])
 
     smtp = smtplib.SMTP(SERVER, PORT)
     smtp.sendmail(send_from, send_to, msg.as_string())

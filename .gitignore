@@ -1,8 +1,8 @@
 __pycache__
 env/
 .env
-dx.py
 test.tar
 genetics
 var
 duplicates.txt
+config.txt
