@@ -40,12 +40,14 @@ def main():
         logs_dir = set([x.split('.')[1] for x in os.listdir(logs_dir)])
 
         log.info('Number of folders in /genetic: {} for seq {}'.format(
-            len(gene_dir), seq))
+            len(gene_dir), file))
         log.info('Number of folders in /log: {} for seq {}'.format(
-            len(logs_dir), seq))
+            len(logs_dir), file))
 
         # Get the duplicates between two directories /genetics & /var/log/
         temp_duplicates = gene_dir & logs_dir
+
+        log.info('Number of overlap files: {}'.format(len(temp_duplicates)))
 
         duplicates += list(temp_duplicates)
         log.info('Loop through {} ended'.format(file))
@@ -135,6 +137,8 @@ def main():
         log.info('No runs older than {} months'.format(NUM_MONTH))
         log.info('Program will stop here. There will be no email')
         sys.exit()
+
+    log.info('Number of old enough files: {}'.format(len(final_duplicates)))
 
     duplicates_dir = []
 

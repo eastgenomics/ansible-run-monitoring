@@ -99,10 +99,8 @@ def send_mail(send_from, send_to, subject, df=None, files=None):
         msg.attach(
             MIMEText(
                 """
-
                 The authentication for dxpy has returned an error.
-                Please check log file
-
+                Please check log file.
                 """
             ))
 
