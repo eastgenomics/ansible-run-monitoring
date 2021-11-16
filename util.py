@@ -15,7 +15,7 @@ import dxpy as dx
 
 load_dotenv()
 
-log = get_logger("ansible util log")
+log = get_logger("util log")
 
 
 def dx_login():

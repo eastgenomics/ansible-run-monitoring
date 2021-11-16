@@ -7,7 +7,7 @@ import dxpy as dx
 from util import dx_login, send_mail
 from helper import get_logger
 
-log = get_logger("ansible main log")
+log = get_logger("main log")
 
 
 def main():
