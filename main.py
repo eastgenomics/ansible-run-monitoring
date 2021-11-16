@@ -168,6 +168,10 @@ def main():
             ]
         )
 
+    # sort df based on datetime
+    df['Created'] = pd.to_datetime(df.Created, format='%Y-%m-%d')
+    df = df.sort_values(by='Created')
+
     # send the txt file (attachment) and dataframe as table in email
     send_mail(
         sender,
