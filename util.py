@@ -7,7 +7,6 @@ from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.utils import COMMASPACE, formatdate
-from pandas.core.frame import DataFrame
 from tabulate import tabulate
 
 from dotenv import load_dotenv
@@ -97,6 +96,15 @@ def send_mail(send_from, send_to, subject, df=None, files=None):
             "alternative", None, [MIMEText(text), MIMEText(html, 'html')])
     else:
         msg = MIMEMultipart()
+        msg.attach(
+            MIMEText(
+                """
+
+                The authentication for dxpy has returned an error.
+                Please check log file
+
+                """
+            ))
 
     # email headers
     msg['From'] = send_from
@@ -118,9 +126,14 @@ def send_mail(send_from, send_to, subject, df=None, files=None):
     SERVER = os.environ['ENV_SERVER']
     PORT = int(os.environ['ENV_PORT'])
 
-    smtp = smtplib.SMTP(SERVER, PORT)
+    try:
+        smtp = smtplib.SMTP(SERVER, PORT)
 
-    log.info('Send email to {}'.format(COMMASPACE.join(send_to)))
+        log.info('Send email to {}'.format(COMMASPACE.join(send_to)))
+        smtp.sendmail(send_from, send_to, msg.as_string())
+        log.info('Email to {} sent'.format(COMMASPACE.join(send_to)))
 
-    smtp.sendmail(send_from, send_to, msg.as_string())
-    smtp.quit()
+        smtp.quit()
+
+    except Exception as e:
+        log.error('Send email function failed with error: {}'.format(e))

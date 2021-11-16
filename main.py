@@ -39,6 +39,11 @@ def main():
         gene_dir = set([x.strip() for x in os.listdir(gene_dir)])
         logs_dir = set([x.split('.')[1] for x in os.listdir(logs_dir)])
 
+        log.info('Number of folders in /genetic: {} for seq {}'.format(
+            len(gene_dir), seq))
+        log.info('Number of folders in /log: {} for seq {}'.format(
+            len(logs_dir), seq))
+
         # Get the duplicates between two directories /genetics & /var/log/
         temp_duplicates = gene_dir & logs_dir
 
@@ -47,6 +52,7 @@ def main():
 
     # find out if a run has been created for the project in dnanexus
     for project in duplicates:
+
         log.info('Fetching Dxpy API {} started'.format(project))
 
         # dxpy to query project in dnanexus
@@ -136,7 +142,9 @@ def main():
     for file in final_duplicates:
         fileseq = file.split('_')[1]
         duplicates_dir.append('/genetics/{}/{}'.format(fileseq, file))
-        duplicates_dir.append('/var/log/dx-streaming-upload/{}/run.{}.lane.all.log'.format(fileseq, file))
+        duplicates_dir.append(
+            '/var/log/dx-streaming-upload/{}/run.{}.lane.all.log'.format(
+                fileseq, file))
 
     # saving the directories into txt file (newline)
     log.info('Writing text file')
