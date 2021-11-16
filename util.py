@@ -1,6 +1,7 @@
 import os
 import sys
 import smtplib
+
 from os.path import basename
 from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
@@ -10,9 +11,12 @@ from pandas.core.frame import DataFrame
 from tabulate import tabulate
 
 from dotenv import load_dotenv
+from helper import get_logger
 import dxpy as dx
 
 load_dotenv()
+
+log = get_logger("ansible util log")
 
 
 def dx_login():
@@ -28,9 +32,8 @@ def dx_login():
         try:
             AUTH_TOKEN = os.environ["AUTH_TOKEN"]
         except NameError as e:
-            raise NameError(
-                'auth token could not be retrieved from environment and no .env file passed'
-            )
+            log.error('No dxpy auth token detected')
+            sys.exit()
 
     # env variable for dx authentication
     DX_SECURITY_CONTEXT = {
@@ -39,6 +42,7 @@ def dx_login():
     }
 
     # set token to env
+    log.info('Dxpy login initiated')
     dx.set_security_context(DX_SECURITY_CONTEXT)
 
 
@@ -47,20 +51,18 @@ def send_mail(
         send_to: list,
         subject: str,
         df: DataFrame,
-        files=None
-        ) -> None:
+        files=None):
 
     """ Function to send email. Require send_to (list) and file (list) """
 
     assert isinstance(send_to, list)
 
-    # msg = MIMEMultipart()
-
     # email messge content
     text = """
         Hi,
 
-        Here's the data for duplicated runs found in /genetics & /var/log/dx-streaming-uploads & dnaNexus:
+        Here's the data for duplicated runs found in
+        /genetics & /var/log/dx-streaming-uploads & dnaNexus:
 
         {table}
 
@@ -78,7 +80,10 @@ def send_mail(
         </style>
         </head>
         <body><p>Hi</p>
-        <p>Here's the data for duplicated runs found in /genetics & /var/log/dx-streaming-uploads & dnaNexus:</p>
+        <p>
+        Here's the data for duplicated runs found in
+        /genetics & /var/log/dx-streaming-uploads & dnaNexus:
+        </p>
         {table}
         <p>Kind Regards</p>
         <p>Beep Robot~</p>
@@ -113,5 +118,6 @@ def send_mail(
     PORT = int(os.environ['ENV_PORT'])
 
     smtp = smtplib.SMTP(SERVER, PORT)
+    log.info('Send email function initiated')
     smtp.sendmail(send_from, send_to, msg.as_string())
     smtp.quit()

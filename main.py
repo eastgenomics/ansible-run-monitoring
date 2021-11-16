@@ -5,6 +5,9 @@ import pandas as pd
 import dxpy as dx
 
 from util import dx_login, send_mail
+from helper import get_logger
+
+log = get_logger("ansible main log")
 
 
 def main():
@@ -12,6 +15,7 @@ def main():
     dx_login()
 
     # Defining environment variables
+    log.info('Fetching all environment variables')
     GENETIC_DIR = os.environ['ENV_GENETICDIR']
     LOGS_DIR = os.environ['ENV_LOGSDIR']
 
@@ -27,25 +31,32 @@ def main():
 
     # Loop through each file in /genetics & /var/log/dx-stream-upload
     for file in seq:
+        log.info('Loop through {} started'.format(file))
         gene_dir = '{}/{}'.format(GENETIC_DIR, file)
         logs_dir = '{}/{}'.format(LOGS_DIR, file)
 
-        # Get the duplicates between two directories /genetics & /var/log/
+        # Use set type to get duplicates
         gene_dir = set([x.strip() for x in os.listdir(gene_dir)])
         logs_dir = set([x.split('.')[1] for x in os.listdir(logs_dir)])
 
+        # Get the duplicates between two directories /genetics & /var/log/
         temp_duplicates = gene_dir & logs_dir
 
         duplicates += list(temp_duplicates)
+        log.info('Loop through {} ended'.format(file))
 
     # find out if a run has been created for the project in dnanexus
     for project in duplicates:
+        log.info('Fetching Dxpy API {} started'.format(project))
+
         # dxpy to query project in dnanexus
         dxes = dx.search.find_projects(
             name="002_{}_\D+".format(project),
             name_mode="regexp",
             describe=True
             )
+
+        log.info('Fetching Dxpy API {} ended'.format(project))
 
         # save return object into an external variable for later manipulation
         return_obj = list(dxes)
@@ -57,17 +68,31 @@ def main():
             today = dt.datetime.today()
 
             # convert millisec from Epoch datetime to readable human format
-            created_date = dt.datetime.fromtimestamp(proj_des['created'] / 1000.0).strftime('%Y-%m-%d')
+            created_date = dt.datetime.fromtimestamp(
+                proj_des['created'] / 1000.0)
+            created_on = created_date.strftime('%Y-%m-%d')
 
             duration = today - created_date
 
-            # check if created_date is more than 3 months (90 days)
-            if duration.total_seconds() / (24*60*60) > 90:
+            # how many month old folder
+            NUM_MONTH = os.environ['ENV_MONTH']
+
+            # check if created_date is more than NUM_MONTH month(s)
+            # using days for counting to be more accurate
+            old_enough = duration.total_seconds() / (
+                24*60*60) > 30 * int(NUM_MONTH)
+
+            if old_enough:
+
+                log.info('{} {} ::: {} days'.format(
+                    project,
+                    created_on,
+                    duration.days))
 
                 table_data.append(
                     (
                         project,
-                        created_date,
+                        created_on,
                         '{} GB'.format(round(proj_des['dataUsage'])),
                         proj_des['createdBy']['user'],
                         proj_des['storageCost']
@@ -76,8 +101,20 @@ def main():
 
                 final_duplicates.append(project)
 
+                continue
+
+            log.info('{} {} {} REJECTED'.format(
+                project,
+                created_on,
+                duration.days))
+
+            continue
+
+        log.info('No return object from {}'.format(project))
+
     if not final_duplicates:
-        print('There is no runs older than 3 months')
+        log.info('No runs older than {} months'.format(NUM_MONTH))
+        log.info('Program will stop here. There will be no email')
         sys.exit()
 
     duplicates_dir = []
@@ -89,6 +126,7 @@ def main():
         duplicates_dir.append('/var/log/dx-streaming-upload/{}/run.{}.lane.all.log'.format(fileseq, file))
 
     # saving the directories into txt file (newline)
+    log.info('Writing text file')
     with open('duplicates.txt', 'w') as f:
         f.write('\n'.join(duplicates_dir))
 
@@ -115,4 +153,6 @@ def main():
 
 
 if __name__ == "__main__":
+    log.info('--------- Starting Script ----------')
     main()
+    log.info('--------- End Script ----------')
