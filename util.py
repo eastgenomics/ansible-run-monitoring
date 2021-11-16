@@ -23,17 +23,13 @@ def dx_login():
 
     """ Dxpy login user for dxpy function either by .env file or docker env """
 
-    if len(sys.argv) > 1:
-        # config / env file passed as arg
-        # read in to dict and don't touch env variables
-        AUTH_TOKEN = os.getenv("AUTH_TOKEN")
-    else:
-        # try to get auth token from env (i.e. run in docker)
-        try:
-            AUTH_TOKEN = os.environ["AUTH_TOKEN"]
-        except NameError as e:
-            log.error('No dxpy auth token detected')
-            sys.exit()
+    # try to get auth token from env (i.e. run in docker)
+    try:
+        AUTH_TOKEN = os.environ["AUTH_TOKEN"]
+    except Exception as e:
+        log.error('No dnanexus auth token detected')
+        log.info('----- Stopping script -----')
+        sys.exit()
 
     # env variable for dx authentication
     DX_SECURITY_CONTEXT = {
@@ -46,12 +42,7 @@ def dx_login():
     dx.set_security_context(DX_SECURITY_CONTEXT)
 
 
-def send_mail(
-        send_from: str,
-        send_to: list,
-        subject: str,
-        df: DataFrame,
-        files=None):
+def send_mail(send_from, send_to, subject, df=None, files=None):
 
     """ Function to send email. Require send_to (list) and file (list) """
 
@@ -90,12 +81,22 @@ def send_mail(
         </body></html>
     """
 
-    col_header = list(df.columns.values)
-    text = text.format(table=tabulate(df, headers=col_header, tablefmt="grid"))
-    html = html.format(table=tabulate(df, headers=col_header, tablefmt="html"))
+    if df is not None:
+        col_header = list(df.columns.values)
+        text = text.format(table=tabulate(
+            df,
+            headers=col_header,
+            tablefmt="grid"))
 
-    msg = MIMEMultipart(
-        "alternative", None, [MIMEText(text), MIMEText(html, 'html')])
+        html = html.format(table=tabulate(
+            df,
+            headers=col_header,
+            tablefmt="html"))
+
+        msg = MIMEMultipart(
+            "alternative", None, [MIMEText(text), MIMEText(html, 'html')])
+    else:
+        msg = MIMEMultipart()
 
     # email headers
     msg['From'] = send_from
@@ -118,6 +119,8 @@ def send_mail(
     PORT = int(os.environ['ENV_PORT'])
 
     smtp = smtplib.SMTP(SERVER, PORT)
-    log.info('Send email function initiated')
+
+    log.info('Send email to {}'.format(COMMASPACE.join(send_to)))
+
     smtp.sendmail(send_from, send_to, msg.as_string())
     smtp.quit()

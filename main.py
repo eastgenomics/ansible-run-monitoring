@@ -58,8 +58,21 @@ def main():
 
         log.info('Fetching Dxpy API {} ended'.format(project))
 
-        # save return object into an external variable for later manipulation
-        return_obj = list(dxes)
+        try:
+            # save return object into an external variable
+            return_obj = list(dxes)
+
+        except Exception as e:
+            # error handling in case auth_token expired or invalid
+            log.error(e)
+
+            send_mail(
+                sender,
+                receivers,
+                'Ansible Run (Deletion) AUTH_TOKEN ERROR'
+            )
+
+            sys.exit()
 
         # if return=True, 002_run is created in dnanexus
         if return_obj:
@@ -78,7 +91,6 @@ def main():
             NUM_MONTH = os.environ['ENV_MONTH']
 
             # check if created_date is more than NUM_MONTH month(s)
-            # using days for counting to be more accurate
             old_enough = duration.total_seconds() / (
                 24*60*60) > 30 * int(NUM_MONTH)
 
@@ -95,7 +107,8 @@ def main():
                         created_on,
                         '{} GB'.format(round(proj_des['dataUsage'])),
                         proj_des['createdBy']['user'],
-                        proj_des['storageCost']
+                        proj_des['storageCost'],
+                        duration.days
                     )
                 )
 
@@ -138,7 +151,8 @@ def main():
             'Created',
             'Data Usage',
             'Created By',
-            'Storage Cost'
+            'Storage Cost',
+            'Age'
             ]
         )
 
