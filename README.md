@@ -10,7 +10,8 @@ Script will get all the run names in ``` /genetics ``` and compare it with the l
 
 ## Rebuilding Docker Image
 
-Contains the Dockerfile and requirement.txt for re-building the docker image. Run ```docker build -t <image name> .``` 
+Contains the Dockerfile and requirement.txt for re-building the docker image. \
+Run ```docker build -t <image name> .``` 
 
 Tested on Ubuntu 20.04.3 LTS
 
