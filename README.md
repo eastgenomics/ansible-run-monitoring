@@ -17,7 +17,14 @@ Project  | Created | Data Usage | Created By | Age | Uploaded to Staging52 | Old
 Contains the Dockerfile and requirement.txt for re-building the docker image. \
 Run ```docker build -t <image name> .``` 
 
-Tested on Ubuntu 20.04.3 LTS
+## Packages Installed
+1. dxpy
+2. tabulate
+3. pandas
+4. dotenv (only for development purpose)
+
+Docker base image: python3.8-slim-buster \
+**Tested on Ubuntu 20.04.3 LTS**
 
 
 ## Running the Container
