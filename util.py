@@ -157,14 +157,26 @@ def send_mail(send_from, send_to, subject, df=None, files=None):
 
         text = """
             There is an error with the dxpy auth token!
-            Please check log file
+            Please check the log file
 
             Kind Regards,
             Beep Robot
 
         """
+        html = """
+            <html>
+            <head></head>
+            <body>
+            <p>
+            There is an error with the dxpy auth token!
+            Please check the log file
+            </p>
+            <p>Kind Regards</p>
+            <p>Beep Robot~</p>
+            </body></html>
+        """
         msg = MIMEMultipart(
-            "alternative", None, [MIMEText(text)])
+            "alternative", None, [MIMEText(text), MIMEText(html, 'html')])
 
     # email headers
     msg['From'] = send_from
