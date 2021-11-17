@@ -62,6 +62,7 @@ def main():
 
         if describe:
             # 002_ folder found
+
             proj_des = describe['describe']
 
             today = dt.datetime.today()

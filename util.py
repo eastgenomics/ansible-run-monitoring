@@ -43,13 +43,18 @@ def dx_login():
 
 
 def check_project_directory(project):
+
+    """ Check if <project> directory is in Staging52. Return boolean """
+
     try:
+
         dxes = dx.find_data_objects(
             project='project-FpVG0G84X7kzq58g19vF1YJQ',
             folder='/{}'.format(project),
             limit=1
         )
 
+        # if there is directory, this will not return empty list
         return_obj = list(dxes)
 
         if return_obj:
@@ -62,6 +67,11 @@ def check_project_directory(project):
 
 
 def get_describe_data(project, sender, receivers):
+
+    """ Find 002_ project directory. Return (dict) of the describe=True result.
+    Else, will return empty list [] if no 002_ project is found.
+    Exit script and send an error email
+    if there is an issue with auth token for dxpy. """
 
     dxes = dx.search.find_projects(
         name="002_{}_\D+".format(project),
@@ -96,8 +106,6 @@ def send_mail(send_from, send_to, subject, df=None, files=None):
 
     # email messge content
     text = """
-        Hi,
-
         Here's the data for duplicated runs found in
         /genetics & /var/log/dx-streaming-uploads & dnaNexus:
 
@@ -116,7 +124,7 @@ def send_mail(send_from, send_to, subject, df=None, files=None):
         th, td {{ padding: 5px; }}
         </style>
         </head>
-        <body><p>Hi</p>
+        <body>
         <p>
         Here's the data for duplicated runs found in
         /genetics & /var/log/dx-streaming-uploads & dnaNexus:
@@ -128,6 +136,8 @@ def send_mail(send_from, send_to, subject, df=None, files=None):
     """
 
     if df is not None:
+        # we make df into table in email using tabulate
+
         col_header = list(df.columns.values)
         text = text.format(table=tabulate(
             df,
@@ -142,9 +152,10 @@ def send_mail(send_from, send_to, subject, df=None, files=None):
         msg = MIMEMultipart(
             "alternative", None, [MIMEText(text), MIMEText(html, 'html')])
     else:
-        text = """
-            Hi,
+        # if there is no dataframe (data), very likely there's an error
+        # so we send an error code email
 
+        text = """
             There is an error with the dxpy auth token!
             Please check log file
 
@@ -152,7 +163,8 @@ def send_mail(send_from, send_to, subject, df=None, files=None):
             Beep Robot
 
         """
-        msg = MIMEMultipart()
+        msg = MIMEMultipart(
+            "alternative", None, [MIMEText(text)])
 
     # email headers
     msg['From'] = send_from
@@ -160,7 +172,7 @@ def send_mail(send_from, send_to, subject, df=None, files=None):
     msg['Date'] = formatdate(localtime=True)
     msg['Subject'] = subject
 
-    # email message attachment
+    # email message attachment (default: None)
     for f in files or []:
         with open(f, "rb") as fil:
             part = MIMEApplication(
@@ -171,6 +183,7 @@ def send_mail(send_from, send_to, subject, df=None, files=None):
         part['Content-Disposition'] = 'attachment; filename="%s"' % basename(f)
         msg.attach(part)
 
+    # define server and port for smtp
     SERVER = os.environ['ENV_SERVER']
     PORT = int(os.environ['ENV_PORT'])
 
