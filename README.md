@@ -54,7 +54,7 @@ Log file (``` ansible-run-monitoring ```) will be stored in ``` /var/log/ ```
 
 ## Automation
 
-It is written to run periodically (e.g. every 3 months) to find delete-able runs in ```/genetics``` <br> using crons.
+It is written to run monthly to check for runs older than X number of months
 
 ## Error
 
