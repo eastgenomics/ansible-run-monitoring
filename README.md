@@ -5,7 +5,11 @@ Ansible-Run-Monitoring is a python script to report successfully-uploaded runs o
 
 ## Script
 
-Script will get all the run names in ``` /genetics ``` and compare it with the logs folder in ``` /var/log/dx-streaming-upload ```. It gets the overlap between these two directories and check if the run ```(002_<run name>_ABC)``` exist on DNANexus. Runs which exist on DNANexus are compiled into a table in email and a text file is generated with their respective directory pathways e.g. ``` /genetics/A01295/ABC_RUNS & /var/log/dx-streaming-upload/A01295/log.ABC_RUNS ```
+Script will get all the run names in ``` /genetics ``` and compare it with the logs folder in ``` /var/log/dx-streaming-upload ``` using set. It gets the overlap between these two directories and check if the folder ```<project name>``` exist in Staging52 and if the folder ```(002_<run name>_ABC)``` exist on DNANexus. Runs are then compiled into a table as email body and a text file is generated with their respective directory pathways e.g. ``` /genetics/A01295/ABC_RUNS ```
+
+Project  | Created | Data Usage | Created By | Age | Uploaded to Staging52 | Old Enough | 002 Directory Found
+------------- | ------------- | ------------- | ------------- | ------------- | ------------- | ------------- | ------------- | 
+211115_A01295_0035_AHMYGGDRXY  | 2021-10-18 | 533.0 GB | user-aishadahir | 30 | True | True | True
 
 
 ## Rebuilding Docker Image
