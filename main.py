@@ -4,7 +4,7 @@ import datetime as dt
 import pandas as pd
 import dxpy as dx
 
-from util import dx_login, send_mail
+from util import *
 from helper import get_logger
 
 log = get_logger("main log")
@@ -50,41 +50,19 @@ def main():
         log.info('Number of overlap files: {}'.format(len(temp_duplicates)))
 
         duplicates += list(temp_duplicates)
-        log.info('Loop through {} ended'.format(file))
 
     # find out if a run has been created for the project in dnanexus
     for project in duplicates:
 
-        log.info('Fetching Dxpy API {} started'.format(project))
+        # check uploaded to staging52 project file (bool)
+        uploaded_bool = check_project_directory(project)
 
-        # dxpy to query project in dnanexus
-        dxes = dx.search.find_projects(
-            name="002_{}_\D+".format(project),
-            name_mode="regexp",
-            describe=True
-            )
+        # check 002_ folder created
+        describe = get_describe_data(project, sender, receivers)
 
-        log.info('Fetching Dxpy API {} ended'.format(project))
-
-        try:
-            # save return object into an external variable
-            return_obj = list(dxes)
-
-        except Exception as e:
-            # error handling in case auth_token expired or invalid
-            log.error(e)
-
-            send_mail(
-                sender,
-                receivers,
-                'Ansible Run (Deletion) AUTH_TOKEN ERROR'
-            )
-
-            sys.exit()
-
-        # if return=True, 002_run is created in dnanexus
-        if return_obj:
-            proj_des = return_obj[0]['describe']
+        if describe:
+            # 002_ folder found
+            proj_des = describe['describe']
 
             today = dt.datetime.today()
 
@@ -95,7 +73,7 @@ def main():
 
             duration = today - created_date
 
-            # how many month old folder
+            # how many month old from env
             NUM_MONTH = os.environ['ENV_MONTH']
 
             # check if created_date is more than NUM_MONTH month(s)
@@ -103,8 +81,9 @@ def main():
                 24*60*60) > 30 * int(NUM_MONTH)
 
             if old_enough:
+                # folder is old enough = can be deleted
 
-                log.info('{} {} ::: {} days'.format(
+                log.info('{} {} ::: {} days PASS'.format(
                     project,
                     created_on,
                     duration.days))
@@ -115,8 +94,10 @@ def main():
                         created_on,
                         '{} GB'.format(round(proj_des['dataUsage'])),
                         proj_des['createdBy']['user'],
-                        proj_des['storageCost'],
-                        duration.days
+                        duration.days,
+                        uploaded_bool,
+                        True,
+                        True
                     )
                 )
 
@@ -124,14 +105,46 @@ def main():
 
                 continue
 
-            log.info('{} {} {} REJECTED'.format(
-                project,
-                created_on,
-                duration.days))
+            else:
+                # folder is not old enough
+
+                log.info('{} {} ::: {} days REJECTED'.format(
+                    project,
+                    created_on,
+                    duration.days))
+
+                table_data.append(
+                    (
+                        project,
+                        created_on,
+                        '{} GB'.format(round(proj_des['dataUsage'])),
+                        proj_des['createdBy']['user'],
+                        duration.days,
+                        uploaded_bool,
+                        False,
+                        True
+                    )
+                )
 
             continue
 
-        log.info('No return object from {}'.format(project))
+        else:
+            # 002_ folder NOT found
+
+            table_data.append(
+                (
+                    project,
+                    'NO DATA',
+                    'NO DATA',
+                    'NO DATA',
+                    'NO DATA',
+                    uploaded_bool,
+                    False,
+                    False
+                )
+            )
+
+            log.info('No return object from {}'.format(project))
 
     if not final_duplicates:
         log.info('No runs older than {} months'.format(NUM_MONTH))
@@ -146,9 +159,6 @@ def main():
     for file in final_duplicates:
         fileseq = file.split('_')[1]
         duplicates_dir.append('/genetics/{}/{}'.format(fileseq, file))
-        duplicates_dir.append(
-            '/var/log/dx-streaming-upload/{}/run.{}.lane.all.log'.format(
-                fileseq, file))
 
     # saving the directories into txt file (newline)
     log.info('Writing text file')
@@ -163,14 +173,12 @@ def main():
             'Created',
             'Data Usage',
             'Created By',
-            'Storage Cost',
-            'Age'
+            'Age',
+            'Uploaded to Staging52',
+            'Old Enough',
+            '002 Directory Found'
             ]
         )
-
-    # sort df based on datetime
-    df['Created'] = pd.to_datetime(df.Created, format='%Y-%m-%d')
-    df = df.sort_values(by='Created')
 
     # send the txt file (attachment) and dataframe as table in email
     send_mail(

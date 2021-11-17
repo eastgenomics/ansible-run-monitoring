@@ -12,6 +12,7 @@ from tabulate import tabulate
 from dotenv import load_dotenv
 from helper import get_logger
 import dxpy as dx
+import datetime as dt
 
 load_dotenv()
 
@@ -39,6 +40,52 @@ def dx_login():
     # set token to env
     log.info('Dxpy login initiated')
     dx.set_security_context(DX_SECURITY_CONTEXT)
+
+
+def check_project_directory(project):
+    try:
+        dxes = dx.find_data_objects(
+            project='project-FpVG0G84X7kzq58g19vF1YJQ',
+            folder='/{}'.format(project),
+            limit=1
+        )
+
+        return_obj = list(dxes)
+
+        if return_obj:
+            return True
+
+        return False
+
+    except Exception as e:
+        return False
+
+
+def get_describe_data(project, sender, receivers):
+
+    dxes = dx.search.find_projects(
+        name="002_{}_\D+".format(project),
+        name_mode="regexp",
+        describe=True
+        )
+
+    try:
+        result = list(dxes)
+
+    except Exception as e:
+
+        # error handling in case auth_token expired or invalid
+        log.error(e)
+
+        send_mail(
+            sender,
+            receivers,
+            'Ansible Run (Deletion) AUTH_TOKEN ERROR'
+        )
+
+        sys.exit()
+
+    return result[0] if result else []
 
 
 def send_mail(send_from, send_to, subject, df=None, files=None):
@@ -95,14 +142,17 @@ def send_mail(send_from, send_to, subject, df=None, files=None):
         msg = MIMEMultipart(
             "alternative", None, [MIMEText(text), MIMEText(html, 'html')])
     else:
+        text = """
+            Hi,
+
+            There is an error with the dxpy auth token!
+            Please check log file
+
+            Kind Regards,
+            Beep Robot
+
+        """
         msg = MIMEMultipart()
-        msg.attach(
-            MIMEText(
-                """
-                The authentication for dxpy has returned an error.
-                Please check log file.
-                """
-            ))
 
     # email headers
     msg['From'] = send_from
