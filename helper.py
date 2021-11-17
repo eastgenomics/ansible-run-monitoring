@@ -1,3 +1,9 @@
+"""
+main script for logging purpose.
+Script can be imported and will generate log file in
+directory defined below
+"""
+
 import sys
 import logging
 from logging.handlers import TimedRotatingFileHandler
