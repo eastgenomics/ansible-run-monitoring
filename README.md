@@ -56,4 +56,11 @@ Log file (``` ansible-run-monitoring ```) will be stored in ``` /var/log/ ```
 
 It is written to run periodically (e.g. every 3 months) to find delete-able runs in ```/genetics``` <br> using crons.
 
+## Error
+
+If there's an error with the auth token for dnanexus, the error code below will be returned\
+```" The token could not be found, code 401. Request Time=1637168014.38, Request ID=unavailable "```
+
+For more information regarding the specific of error codes, please visit [here](https://documentation.dnanexus.com/developer/api/protocols).
+
 Any bugs or suggestions for improvement, please raise an issue
