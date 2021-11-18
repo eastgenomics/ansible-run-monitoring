@@ -136,7 +136,7 @@ def main():
                     'NO DATA',
                     'NO DATA',
                     'NO DATA',
-                    'NO DATA',
+                    0,
                     False,
                     uploaded_bool,
                     False
@@ -178,6 +178,8 @@ def main():
             '002 Directory Found'
             ]
         )
+
+    df = df.sort_values(by='Age')
 
     # send the txt file (attachment) and dataframe as table in email
     send_mail(
