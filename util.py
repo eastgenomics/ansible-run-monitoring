@@ -107,7 +107,7 @@ def send_mail(send_from, send_to, subject, df=None, files=None):
     # email messge content
     text = """
         Here's the data for duplicated runs found in
-        /genetics & /var/log/dx-streaming-uploads & dnaNexus:
+        "/genetics" & "/var/log/dx-streaming-uploads" & DNAnexus:
 
         {table}
 
@@ -127,7 +127,7 @@ def send_mail(send_from, send_to, subject, df=None, files=None):
         <body>
         <p>
         Here's the data for duplicated runs found in
-        /genetics & /var/log/dx-streaming-uploads & dnaNexus:
+        "/genetics" & "/var/log/dx-streaming-uploads" & DNAnexus:
         </p>
         {table}
         <p>Kind Regards</p>
