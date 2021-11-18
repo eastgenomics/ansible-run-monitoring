@@ -156,8 +156,8 @@ def send_mail(send_from, send_to, subject, df=None, files=None):
         # so we send an error code email
 
         text = """
-            There is an error with the dxpy auth token!
-            Please check the log file
+            The dxpy auth token might be expired!
+            Please check the log file for detailed error code.
 
             Kind Regards,
             Beep Robot
@@ -168,8 +168,8 @@ def send_mail(send_from, send_to, subject, df=None, files=None):
             <head></head>
             <body>
             <p>
-            There is an error with the dxpy auth token!
-            Please check the log file
+            The dxpy auth token might be expired!
+            Please check the log file for detailed error code.
             </p>
             <p>Kind Regards</p>
             <p>Beep Robot~</p>
