@@ -18,6 +18,7 @@ def main():
     log.info('Fetching all environment variables')
     GENETIC_DIR = os.environ['ENV_GENETICDIR']
     LOGS_DIR = os.environ['ENV_LOGSDIR']
+    NUM_MONTH = os.environ['ENV_MONTH']
 
     sender = os.environ['ENV_SENDER']
     receivers = os.environ['ENV_RECEIVERS']
@@ -73,9 +74,6 @@ def main():
             created_on = created_date.strftime('%Y-%m-%d')
 
             duration = today - created_date
-
-            # how many month old from env
-            NUM_MONTH = os.environ['ENV_MONTH']
 
             # check if created_date is more than NUM_MONTH month(s)
             old_enough = duration.total_seconds() / (

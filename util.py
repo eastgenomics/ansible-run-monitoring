@@ -50,7 +50,7 @@ def check_project_directory(project):
 
         dxes = dx.find_data_objects(
             project='project-FpVG0G84X7kzq58g19vF1YJQ',
-            folder='/{}'.format(project),
+            folder=f'/{project}',
             limit=1
         )
 
@@ -74,7 +74,7 @@ def get_describe_data(project, sender, receivers):
     if there is an issue with auth token for dxpy. """
 
     dxes = dx.search.find_projects(
-        name="002_{}_\D+".format(project),
+        name=f'002_{project}_\D+',
         name_mode="regexp",
         describe=True
         )
@@ -202,11 +202,11 @@ def send_mail(send_from, send_to, subject, df=None, files=None):
     try:
         smtp = smtplib.SMTP(SERVER, PORT)
 
-        log.info('Send email to {}'.format(COMMASPACE.join(send_to)))
+        log.info(f'Send email to {COMMASPACE.join(send_to)}')
         smtp.sendmail(send_from, send_to, msg.as_string())
-        log.info('Email to {} sent'.format(COMMASPACE.join(send_to)))
+        log.info(f'Email to {COMMASPACE.join(send_to)} sent')
 
         smtp.quit()
 
     except Exception as e:
-        log.error('Send email function failed with error: {}'.format(e))
+        log.error(f'Send email function failed with error: {e}')
