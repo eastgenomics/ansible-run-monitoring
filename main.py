@@ -33,8 +33,8 @@ def main():
     # Loop through each file in /genetics & /var/log/dx-stream-upload
     for file in seq:
         log.info('Loop through {} started'.format(file))
-        gene_dir = '{}/{}'.format(GENETIC_DIR, file)
-        logs_dir = '{}/{}'.format(LOGS_DIR, file)
+        gene_dir = f'{GENETIC_DIR}/{file}'
+        logs_dir = f'{LOGS_DIR}/{file}'
 
         # Use set type to get duplicates
         gene_dir = set([x.strip() for x in os.listdir(gene_dir)])
@@ -48,7 +48,7 @@ def main():
         # Get the duplicates between two directories /genetics & /var/log/
         temp_duplicates = gene_dir & logs_dir
 
-        log.info('Number of overlap files: {}'.format(len(temp_duplicates)))
+        log.info(f'Number of overlap files: {len(temp_duplicates)}')
 
         duplicates += list(temp_duplicates)
 
@@ -143,21 +143,21 @@ def main():
                 )
             )
 
-            log.info('No return object from {}'.format(project))
+            log.info(f'No return object from {project}')
 
     if not final_duplicates:
-        log.info('No runs older than {} months'.format(NUM_MONTH))
+        log.info(f'No runs older than {NUM_MONTH} months')
         log.info('Program will stop here. There will be no email')
         sys.exit()
 
-    log.info('Number of old enough files: {}'.format(len(final_duplicates)))
+    log.info(f'Number of old enough files: {len(final_duplicates)}')
 
     duplicates_dir = []
 
     # create the directories path for each delete-able run
     for file in final_duplicates:
         fileseq = file.split('_')[1]
-        duplicates_dir.append('/genetics/{}/{}'.format(fileseq, file))
+        duplicates_dir.append(f'/genetics/{fileseq}/{file}')
 
     # saving the directories into txt file (newline)
     log.info('Writing text file')
