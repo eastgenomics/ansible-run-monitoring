@@ -1,0 +1,8 @@
+__pycache__
+env/
+.env
+test.tar
+genetics
+var
+duplicates.txt
+config.txt
