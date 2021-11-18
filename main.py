@@ -94,8 +94,8 @@ def main():
                         '{} GB'.format(round(proj_des['dataUsage'])),
                         proj_des['createdBy']['user'],
                         duration.days,
-                        uploaded_bool,
                         True,
+                        uploaded_bool,
                         True
                     )
                 )
@@ -119,8 +119,8 @@ def main():
                         '{} GB'.format(round(proj_des['dataUsage'])),
                         proj_des['createdBy']['user'],
                         duration.days,
-                        uploaded_bool,
                         False,
+                        uploaded_bool,
                         True
                     )
                 )
@@ -137,8 +137,8 @@ def main():
                     'NO DATA',
                     'NO DATA',
                     'NO DATA',
-                    uploaded_bool,
                     False,
+                    uploaded_bool,
                     False
                 )
             )
@@ -173,8 +173,8 @@ def main():
             'Data Usage',
             'Created By',
             'Age',
-            'Uploaded to Staging52',
             'Old Enough',
+            'Uploaded to Staging52',
             '002 Directory Found'
             ]
         )
