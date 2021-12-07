@@ -19,7 +19,7 @@ load_dotenv()
 log = get_logger("util log")
 
 
-def dx_login():
+def dx_login(sender, receivers):
 
     """ Dxpy login user for dxpy function either by .env file or docker env """
 
@@ -38,8 +38,22 @@ def dx_login():
     }
 
     # set token to env
-    log.info('Dxpy login initiated')
     dx.set_security_context(DX_SECURITY_CONTEXT)
+
+    # dx login try catch, if fail, send an email
+    try:
+        dx.api.system_whoami()
+
+    except Exception as e:
+        log.error(e)
+
+        send_mail(
+            sender,
+            receivers,
+            'Ansible Run (Deletion) AUTH_TOKEN ERROR'
+        )
+
+        sys.exit()
 
 
 def check_project_directory(project):
@@ -79,21 +93,7 @@ def get_describe_data(project, sender, receivers):
         describe=True
         )
 
-    try:
-        result = list(dxes)
-
-    except Exception as e:
-
-        # error handling in case auth_token expired or invalid
-        log.error(e)
-
-        send_mail(
-            sender,
-            receivers,
-            'Ansible Run (Deletion) AUTH_TOKEN ERROR'
-        )
-
-        sys.exit()
+    result = list(dxes)
 
     return result[0] if result else []
 

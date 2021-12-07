@@ -12,8 +12,6 @@ log = get_logger("main log")
 
 def main():
 
-    dx_login()
-
     # Defining environment variables
     log.info('Fetching all environment variables')
     GENETIC_DIR = os.environ['ENV_GENETICDIR']
@@ -23,6 +21,8 @@ def main():
     sender = os.environ['ENV_SENDER']
     receivers = os.environ['ENV_RECEIVERS']
     receivers = receivers.split(',') if ',' in receivers else [receivers]
+
+    dx_login(sender, receivers)
 
     seq = [x.upper() for x in os.environ['ENV_SEQ'].split(',')]
 
