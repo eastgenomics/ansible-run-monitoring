@@ -32,7 +32,7 @@ Docker base image: python3.8-slim-buster \
 
 Run Command: ` docker run --env-file <environment filename> -v <local genetic dir>:<docker dir> test `
 
-Running the container requires mounting of two directories from local filesystem ``` /genetics ``` and ``` /var/log ``` to the docker container. This allows the docker container to read and write (log) into the local filesystem.
+Running the container requires mounting of two directories from local filesystem ` /genetics ` and ` /var/log ` to the docker container. This allows the docker container to read and write (log) into the local filesystem.
 
 
 **Current tested command**: 
@@ -66,7 +66,7 @@ Log file (``` ansible-run-monitoring.log ```) will be stored in ``` /var/log/mon
 
 ## Automation
 
-A cron job has been set up to run monthly (```0 0 1 * *```) to check for runs older than X number of months (3)
+Cron has been set to run monthly to check for runs older than X number of months
 
 ## Error
 
