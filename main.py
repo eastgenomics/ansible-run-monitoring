@@ -2,7 +2,6 @@ import os
 import sys
 import datetime as dt
 import pandas as pd
-import dxpy as dx
 
 from util import *
 from helper import get_logger
