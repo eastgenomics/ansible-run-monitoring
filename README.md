@@ -2,8 +2,8 @@
 
 Ansible-Run-Monitoring is a python script to report successfully-uploaded runs on ansible server mounted volume `/genetics`
 
-
 ## Script Workflow
+
 
 Script will get all the run names in ` /genetics ` and compare it with the logs folder in ` /var/log/dx-streaming-upload ` using set. It gets the overlap between these two directories and check if the folder `<project name>` exist in Staging52 and if the folder `(002_<run name>_ABC)` exist on DNANexus. Runs are then compiled into a table as email body and a text file is generated with their respective directory pathways e.g. ` /genetics/A01295/ABC_RUNS `
 
@@ -14,7 +14,8 @@ Project  | Created | Data Usage | Created By | Age | Uploaded to Staging52 | Old
 
 ## Rebuilding Docker Image
 
-Contains the Dockerfile and requirement.txt for re-building the docker image. \
+Contains the Dockerfile and requirement.txt for re-building the docker image.
+
 Run ```docker build -t <image name> .``` 
 
 ## Packages Installed
@@ -36,7 +37,9 @@ Running the container requires mounting of two directories from local filesystem
 
 **Current tested command**: 
 
-``` docker run --env-file <env.txt> -v /genetics:/var/genetics -v /var/log:/var/log  <image name> ```
+
+``` docker run --env-file <config.txt> -v /genetics:/var/genetics -v /var/log:/var/log  <image name> ```
+
 
 
 ## Config Env Variables
@@ -59,11 +62,11 @@ Logging function is written in ` helper.py ` with format ` %(asctime)s:%(name)s:
 
 E.g. ``` 2021-11-16 14:39:45,173```:```ansible main log```:```main```:```INFO```:```Fetching Dxpy API 211014_A01295_0031_AHL3MFDRXY started ```
 
-Log file (``` ansible-run-monitoring ```) will be stored in ``` /var/log/ ```
+Log file (``` ansible-run-monitoring.log ```) will be stored in ``` /var/log/monitoring ```
 
 ## Automation
 
-It is written to run monthly to check for runs older than X number of months
+A cron job has been set up to run monthly (```0 0 1 * *```) to check for runs older than X number of months (3)
 
 ## Error
 
