@@ -12,19 +12,18 @@ log = get_logger("main log")
 
 def main():
 
-    # Defining environment variables
-    log.info('Fetching all environment variables')
-    GENETIC_DIR = os.environ['ENV_GENETICDIR']
-    LOGS_DIR = os.environ['ENV_LOGSDIR']
-    NUM_MONTH = os.environ['ENV_MONTH']
+    GENETIC_DIR = os.environ['ANSIBLE_GENETICDIR']
+    LOGS_DIR = os.environ['ANSIBLE_LOGSDIR']
+    NUM_MONTH = os.environ['ANSIBLE_MONTH']
 
-    sender = os.environ['ENV_SENDER']
-    receivers = os.environ['ENV_RECEIVERS']
+    sender = os.environ['ANSIBLE_SENDER']
+    receivers = os.environ['ANSIBLE_RECEIVERS']
     receivers = receivers.split(',') if ',' in receivers else [receivers]
 
     dx_login(sender, receivers)
+    dir_check([GENETIC_DIR, LOGS_DIR])
 
-    seq = [x.upper() for x in os.environ['ENV_SEQ'].split(',')]
+    seq = [x.upper() for x in os.environ['ANSIBLE_SEQ'].split(',')]
 
     duplicates = []
     final_duplicates = []
@@ -179,7 +178,7 @@ def main():
             ]
         )
 
-    df = df.sort_values(by='Age')
+    df = df.sort_values(by='Age', ascending=False)
 
     # send the txt file (attachment) and dataframe as table in email
     send_mail(
@@ -192,6 +191,6 @@ def main():
 
 
 if __name__ == "__main__":
-    log.info('--------- Starting Script ----------')
+    log.info('--------- Starting Script ---------')
     main()
-    log.info('--------- End Script ----------')
+    log.info('--------- End Script ---------')

@@ -19,13 +19,26 @@ load_dotenv()
 log = get_logger("util log")
 
 
+def dir_check(directories):
+
+    """ Check if directory exist """
+
+    for dir in directories:
+        if os.path.isdir(dir):
+            continue
+        else:
+            log.error(f'{dir} not found')
+            log.info('Stopping script...')
+            sys.exit()
+
+
 def dx_login(sender, receivers):
 
     """ Dxpy login user for dxpy function either by .env file or docker env """
 
     # try to get auth token from env (i.e. run in docker)
     try:
-        AUTH_TOKEN = os.environ["AUTH_TOKEN"]
+        AUTH_TOKEN = os.environ["DNANEXUS_TOKEN"]
     except Exception as e:
         log.error('No dnanexus auth token detected')
         log.info('----- Stopping script -----')
@@ -152,9 +165,6 @@ def send_mail(send_from, send_to, subject, df=None, files=None):
         msg = MIMEMultipart(
             "alternative", None, [MIMEText(text), MIMEText(html, 'html')])
     else:
-        # if there is no dataframe (data), very likely there's an error
-        # so we send an error code email
-
         text = """
             The dxpy auth token might be expired!
             Please check the log file for detailed error code.
@@ -196,8 +206,8 @@ def send_mail(send_from, send_to, subject, df=None, files=None):
         msg.attach(part)
 
     # define server and port for smtp
-    SERVER = os.environ['ENV_SERVER']
-    PORT = int(os.environ['ENV_PORT'])
+    SERVER = os.environ['ANSIBLE_SERVER']
+    PORT = int(os.environ['ANSIBLE_PORT'])
 
     try:
         smtp = smtplib.SMTP(SERVER, PORT)
