@@ -1,6 +1,7 @@
 import os
 import sys
 import smtplib
+import requests
 
 from os.path import basename
 from email.mime.application import MIMEApplication
@@ -8,24 +9,72 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.utils import COMMASPACE, formatdate
 from tabulate import tabulate
-
 from dotenv import load_dotenv
+
 from helper import get_logger
 import dxpy as dx
-import datetime as dt
 
 load_dotenv()
 
 log = get_logger("util log")
 
 
-def dx_login():
+def post_message_to_slack(channel, message):
+    """
+    Request function for slack web api
+    Returns:
+        dict: slack api response
+    """
+
+    log.info(f'Sending POST request to channel: #{channel}')
+
+    try:
+        response = requests.post('https://slack.com/api/chat.postMessage', {
+            'token': os.environ['SLACK_TOKEN'],
+            'channel': f'#{channel}',
+            'text': message
+        }).json()
+
+        if response['ok']:
+            log.info(f'POST request to channel #{channel} successful')
+            return
+        else:
+            # slack api request failed
+            error_code = response['error']
+            log.error(f'Slack API error to #{channel}')
+            log.error(f'Error Code From Slack: {error_code}')
+
+    except Exception as e:
+        # endpoint request fail from server
+        log.error(f'Error sending POST request to channel #{channel}')
+        log.error(e)
+
+
+def dir_check(directories):
+
+    """ Check if directory exist """
+
+    for dir in directories:
+        if os.path.isdir(dir):
+            continue
+        else:
+            log.error(f'{dir} not found')
+            message = (
+                f"ansible-monitoring: Missing directory: {dir}"
+            )
+
+            post_message_to_slack('egg-alerts', message)
+            log.info('Script will stop here.')
+            sys.exit()
+
+
+def dx_login(sender, receivers):
 
     """ Dxpy login user for dxpy function either by .env file or docker env """
 
     # try to get auth token from env (i.e. run in docker)
     try:
-        AUTH_TOKEN = os.environ["AUTH_TOKEN"]
+        AUTH_TOKEN = os.environ["DNANEXUS_TOKEN"]
     except Exception as e:
         log.error('No dnanexus auth token detected')
         log.info('----- Stopping script -----')
@@ -38,8 +87,23 @@ def dx_login():
     }
 
     # set token to env
-    log.info('Dxpy login initiated')
     dx.set_security_context(DX_SECURITY_CONTEXT)
+
+    # dx login try catch, if fail, send an email
+    try:
+        dx.api.system_whoami()
+
+    except Exception as e:
+        log.error(e)
+
+        message = (
+            "ansible-monitoring: Error with dxpy token! Error code: \n"
+            f"`{e}`"
+            )
+
+        post_message_to_slack('egg-alerts', message)
+        log.info('Script will stop here.')
+        sys.exit()
 
 
 def check_project_directory(project):
@@ -79,21 +143,7 @@ def get_describe_data(project, sender, receivers):
         describe=True
         )
 
-    try:
-        result = list(dxes)
-
-    except Exception as e:
-
-        # error handling in case auth_token expired or invalid
-        log.error(e)
-
-        send_mail(
-            sender,
-            receivers,
-            'Ansible Run (Deletion) AUTH_TOKEN ERROR'
-        )
-
-        sys.exit()
+    result = list(dxes)
 
     return result[0] if result else []
 
@@ -107,7 +157,7 @@ def send_mail(send_from, send_to, subject, df=None, files=None):
     # email messge content
     text = """
         Here's the data for duplicated runs found in
-        /genetics & /var/log/dx-streaming-uploads & dnaNexus:
+        "/genetics" & "/var/log/dx-streaming-uploads" & DNAnexus:
 
         {table}
 
@@ -127,7 +177,7 @@ def send_mail(send_from, send_to, subject, df=None, files=None):
         <body>
         <p>
         Here's the data for duplicated runs found in
-        /genetics & /var/log/dx-streaming-uploads & dnaNexus:
+        "/genetics" & "/var/log/dx-streaming-uploads" & DNAnexus:
         </p>
         {table}
         <p>Kind Regards</p>
@@ -151,32 +201,6 @@ def send_mail(send_from, send_to, subject, df=None, files=None):
 
         msg = MIMEMultipart(
             "alternative", None, [MIMEText(text), MIMEText(html, 'html')])
-    else:
-        # if there is no dataframe (data), very likely there's an error
-        # so we send an error code email
-
-        text = """
-            The dxpy auth token might be expired!
-            Please check the log file for detailed error code.
-
-            Kind Regards,
-            Beep Robot
-
-        """
-        html = """
-            <html>
-            <head></head>
-            <body>
-            <p>
-            The dxpy auth token might be expired!
-            Please check the log file for detailed error code.
-            </p>
-            <p>Kind Regards</p>
-            <p>Beep Robot~</p>
-            </body></html>
-        """
-        msg = MIMEMultipart(
-            "alternative", None, [MIMEText(text), MIMEText(html, 'html')])
 
     # email headers
     msg['From'] = send_from
@@ -196,8 +220,8 @@ def send_mail(send_from, send_to, subject, df=None, files=None):
         msg.attach(part)
 
     # define server and port for smtp
-    SERVER = os.environ['ENV_SERVER']
-    PORT = int(os.environ['ENV_PORT'])
+    SERVER = os.environ['ANSIBLE_SERVER']
+    PORT = int(os.environ['ANSIBLE_PORT'])
 
     try:
         smtp = smtplib.SMTP(SERVER, PORT)

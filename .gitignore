@@ -6,3 +6,4 @@ genetics
 var
 duplicates.txt
 config.txt
+cron.sh
