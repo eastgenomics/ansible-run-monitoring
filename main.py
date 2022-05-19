@@ -13,7 +13,7 @@ def main():
 
     GENETIC_DIR = os.environ['ANSIBLE_GENETICDIR']
     LOGS_DIR = os.environ['ANSIBLE_LOGSDIR']
-    NUM_WEEK = os.environ['ANSIBLE_MONTH']
+    NUM_WEEK = os.environ['ANSIBLE_WEEK']
 
     sender = os.environ['ANSIBLE_SENDER']
     receivers = os.environ['ANSIBLE_RECEIVERS']
@@ -75,7 +75,9 @@ def main():
 
             duration = today - created_date
 
-            # check if created_date is more than NUM_MONTH month(s)
+            # check if created_date is more than NUM_WEEK week(s)
+            # duration (sec) / 60 to minute / 60 to hour / 24 to days
+            # If total days is > 7 days * 6 weeks
             old_enough = duration.total_seconds() / (
                 24*60*60) > 7 * int(NUM_WEEK)
 
@@ -183,16 +185,14 @@ def main():
 
     df = df.sort_values(by='Age', ascending=False)
 
-    df.to_csv('test_df.csv')
-
     # send the txt file (attachment) and dataframe as table in email
-    # send_mail(
-    #     sender,
-    #     receivers,
-    #     'Ansible Run (Deletion)',
-    #     df,
-    #     ['duplicates.txt']
-    # )
+    send_mail(
+        sender,
+        receivers,
+        'Ansible Run (Deletion)',
+        df,
+        ['duplicates.txt']
+    )
 
 
 if __name__ == "__main__":

@@ -34,7 +34,7 @@ def post_message_to_slack(channel, message):
     try:
         response = requests.post('https://slack.com/api/chat.postMessage', {
             'token': os.environ['SLACK_TOKEN'],
-            'channel': f'U02HPRQ9X7Z',
+            'channel': f'#{channel}',
             'text': message
         }).json()
 
