@@ -13,35 +13,39 @@ def main():
 
     GENETIC_DIR = os.environ['ANSIBLE_GENETICDIR']
     LOGS_DIR = os.environ['ANSIBLE_LOGSDIR']
-    NUM_MONTH = os.environ['ANSIBLE_MONTH']
+    NUM_WEEK = os.environ['ANSIBLE_WEEK']
 
     sender = os.environ['ANSIBLE_SENDER']
     receivers = os.environ['ANSIBLE_RECEIVERS']
     receivers = receivers.split(',') if ',' in receivers else [receivers]
 
-    dx_login(sender, receivers)
+    dx_login()
     dir_check([GENETIC_DIR, LOGS_DIR])
 
-    seq = [x.upper() for x in os.environ['ANSIBLE_SEQ'].split(',')]
+    today = dt.datetime.today()
+
+    # get all sequencer in env
+    seqs = [x.upper() for x in os.environ['ANSIBLE_SEQ'].split(',')]
 
     duplicates = []
     final_duplicates = []
     table_data = []
 
-    # Loop through each file in /genetics & /var/log/dx-stream-upload
-    for file in seq:
-        log.info('Loop through {} started'.format(file))
-        gene_dir = f'{GENETIC_DIR}/{file}'
-        logs_dir = f'{LOGS_DIR}/{file}'
+    for sequencer in seqs:
+        log.info(f'Loop through {sequencer} started')
 
-        # Use set type to get duplicates
+        # Defining gene and log directories
+        gene_dir = f'{GENETIC_DIR}/{sequencer}'
+        logs_dir = f'{LOGS_DIR}/{sequencer}'
+
+        # Get all files in gene and log dir
         gene_dir = set([x.strip() for x in os.listdir(gene_dir)])
-        logs_dir = set([x.split('.')[1] for x in os.listdir(logs_dir)])
+        logs_dir = set([x.split('.')[1].strip() for x in os.listdir(logs_dir)])
 
-        log.info('Number of folders in /genetic: {} for seq {}'.format(
-            len(gene_dir), file))
-        log.info('Number of folders in /log: {} for seq {}'.format(
-            len(logs_dir), file))
+        log.info(
+            f'Number of folders in genetic: {len(gene_dir)} for {sequencer}')
+        log.info(
+            f'Number of folders in log: {len(logs_dir)} for {sequencer}')
 
         # Get the duplicates between two directories /genetics & /var/log/
         temp_duplicates = gene_dir & logs_dir
@@ -50,21 +54,19 @@ def main():
 
         duplicates += list(temp_duplicates)
 
-    # find out if a run has been created for the project in dnanexus
+    # for each project, we check if it exists on DNANexus
     for project in duplicates:
 
         # check uploaded to staging52 project file (bool)
         uploaded_bool = check_project_directory(project)
 
         # check 002_ folder created
-        describe = get_describe_data(project, sender, receivers)
+        proj_data = get_describe_data(project)
 
-        if describe:
+        if proj_data:
             # 002_ folder found
 
-            proj_des = describe['describe']
-
-            today = dt.datetime.today()
+            proj_des = proj_data['describe']
 
             # convert millisec from Epoch datetime to readable human format
             created_date = dt.datetime.fromtimestamp(
@@ -73,9 +75,11 @@ def main():
 
             duration = today - created_date
 
-            # check if created_date is more than NUM_MONTH month(s)
+            # check if created_date is more than NUM_WEEK week(s)
+            # duration (sec) / 60 to minute / 60 to hour / 24 to days
+            # If total days is > 7 days * 6 weeks
             old_enough = duration.total_seconds() / (
-                24*60*60) > 30 * int(NUM_MONTH)
+                24*60*60) > 7 * int(NUM_WEEK)
 
             if old_enough:
                 # folder is old enough = can be deleted
@@ -123,7 +127,7 @@ def main():
                     )
                 )
 
-            continue
+                continue
 
         else:
             # 002_ folder NOT found
@@ -141,10 +145,12 @@ def main():
                 )
             )
 
-            log.info(f'No return object from {project}')
+            log.info(f'No proj describe data for: {project}')
+
+            continue
 
     if not final_duplicates:
-        log.info(f'No runs older than {NUM_MONTH} months')
+        log.info(f'No runs older than {NUM_WEEK} weeks')
         log.info('Program will stop here. There will be no email')
         sys.exit()
 
@@ -152,13 +158,13 @@ def main():
 
     duplicates_dir = []
 
-    # create the directories path for each delete-able run
+    # writing the directories path for each delete-able run
     for file in final_duplicates:
         fileseq = file.split('_')[1]
         duplicates_dir.append(f'/genetics/{fileseq}/{file}')
 
     # saving the directories into txt file (newline)
-    log.info('Writing text file')
+    log.info('Writing to text file')
     with open('duplicates.txt', 'w') as f:
         f.write('\n'.join(duplicates_dir))
 

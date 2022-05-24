@@ -21,7 +21,10 @@ log = get_logger("util log")
 
 def post_message_to_slack(channel, message):
     """
-    Request function for slack web api
+    Function to send Slack notification
+    Inputs:
+        channel: egg-alerts
+        message: text
     Returns:
         dict: slack api response
     """
@@ -41,7 +44,6 @@ def post_message_to_slack(channel, message):
         else:
             # slack api request failed
             error_code = response['error']
-            log.error(f'Slack API error to #{channel}')
             log.error(f'Error Code From Slack: {error_code}')
 
     except Exception as e:
@@ -52,7 +54,10 @@ def post_message_to_slack(channel, message):
 
 def dir_check(directories):
 
-    """ Check if directory exist """
+    """
+    Function to check if directory exist
+    Mainly to check if /genetic and /var/log/monitoring exist
+    """
 
     for dir in directories:
         if os.path.isdir(dir):
@@ -68,37 +73,32 @@ def dir_check(directories):
             sys.exit()
 
 
-def dx_login(sender, receivers):
+def dx_login():
 
-    """ Dxpy login user for dxpy function either by .env file or docker env """
+    """
+    Function to fetch dxpy auth token
+    and try login user
+    If error, send error msg to Slack
+    """
 
     # try to get auth token from env (i.e. run in docker)
     try:
         AUTH_TOKEN = os.environ["DNANEXUS_TOKEN"]
-    except Exception as e:
-        log.error('No dnanexus auth token detected')
-        log.info('----- Stopping script -----')
-        sys.exit()
 
-    # env variable for dx authentication
-    DX_SECURITY_CONTEXT = {
-        "auth_token_type": "Bearer",
-        "auth_token": AUTH_TOKEN
-    }
+        DX_SECURITY_CONTEXT = {
+            "auth_token_type": "Bearer",
+            "auth_token": AUTH_TOKEN
+        }
 
-    # set token to env
-    dx.set_security_context(DX_SECURITY_CONTEXT)
-
-    # dx login try catch, if fail, send an email
-    try:
+        dx.set_security_context(DX_SECURITY_CONTEXT)
         dx.api.system_whoami()
 
-    except Exception as e:
-        log.error(e)
+    except Exception as err:
+        log.error(err)
 
         message = (
-            "ansible-monitoring: Error with dxpy token! Error code: \n"
-            f"`{e}`"
+            "Ansible-Monitoring: ERROR with dxpy login! Error Code: \n"
+            f"`{err}`"
             )
 
         post_message_to_slack('egg-alerts', message)
@@ -108,49 +108,58 @@ def dx_login(sender, receivers):
 
 def check_project_directory(project):
 
-    """ Check if <project> directory is in Staging52. Return boolean """
+    """
+    Function to check if project is in staging52.
+    Input:
+        project: directory path
+    Return:
+        Boolean
+    """
 
-    try:
+    dx_obj = list(dx.find_data_objects(
+        project='project-FpVG0G84X7kzq58g19vF1YJQ',
+        folder=f'/{project}',
+        limit=1)
+    )
 
-        dxes = dx.find_data_objects(
-            project='project-FpVG0G84X7kzq58g19vF1YJQ',
-            folder=f'/{project}',
-            limit=1
-        )
+    if dx_obj:
+        return True
 
-        # if there is directory, this will not return empty list
-        return_obj = list(dxes)
-
-        if return_obj:
-            return True
-
-        return False
-
-    except Exception as e:
-        return False
+    return False
 
 
-def get_describe_data(project, sender, receivers):
+def get_describe_data(project):
 
-    """ Find 002_ project directory. Return (dict) of the describe=True result.
-    Else, will return empty list [] if no 002_ project is found.
-    Exit script and send an error email
-    if there is an issue with auth token for dxpy. """
+    """
+    Function to see if there is 002 project
+    and its describe data
+    Input:
+        project: text
+    Return:
+        dict of project describe data
+    """
 
-    dxes = dx.search.find_projects(
-        name=f'002_{project}_\D+',
+    dxes = list(dx.search.find_projects(
+        name=f'002_{project}.*',
         name_mode="regexp",
-        describe=True
-        )
+        describe=True,
+        limit=1
+        ))
 
-    result = list(dxes)
-
-    return result[0] if result else []
+    return dxes[0] if dxes else []
 
 
-def send_mail(send_from, send_to, subject, df=None, files=None):
+def send_mail(send_from, send_to, subject, df=None, files=None) -> None:
 
-    """ Function to send email. Require send_to (list) and file (list) """
+    """
+    Function to send server email.
+    Inputs:
+        send_from: str
+        send_to: list
+        subject: text
+        df: DataFrame or None
+        files: list
+    """
 
     assert isinstance(send_to, list)
 
@@ -226,9 +235,9 @@ def send_mail(send_from, send_to, subject, df=None, files=None):
     try:
         smtp = smtplib.SMTP(SERVER, PORT)
 
-        log.info(f'Send email to {COMMASPACE.join(send_to)}')
+        log.info(f'Sending email to {COMMASPACE.join(send_to)}')
         smtp.sendmail(send_from, send_to, msg.as_string())
-        log.info(f'Email to {COMMASPACE.join(send_to)} sent')
+        log.info(f'Email to {COMMASPACE.join(send_to)} SENT')
 
         smtp.quit()
 

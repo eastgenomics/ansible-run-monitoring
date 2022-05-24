@@ -1,11 +1,14 @@
 # Ansible Run Monitoring
 
-Ansible-Run-Monitoring is a python script to report successfully-uploaded runs on ansible server mounted volume `/genetics`
+Python script to report successfully-uploaded (DNANexus) runs in ansible server mounted-volume `/genetics`
 
 ## Script Workflow
 
-
-Script will get all the run names in ` /genetics ` and compare it with the logs folder in ` /var/log/dx-streaming-upload ` using set. It gets the overlap between these two directories and check if the folder `<project name>` exist in Staging52 and if the folder `(002_<run name>_ABC)` exist on DNANexus. Runs are then compiled into a table as email body and a text file is generated with their respective directory pathways e.g. ` /genetics/A01295/ABC_RUNS `
+- Get all runs in `genetics` directory and `log` directory (`/var/log/dx-streaming-upload`) in ansible server
+- Compare runs in both directory for overlap
+- For each overlap, check if: (a) 002 project for it is created on DNANexus; (b) folder exist in Staging52
+- Compile all run which check both criteria and send an email to helpdesk with attachment (a text file of their respective directory path e.g. ` /genetics/A01295/ABC_RUNS`
+- Table will also be in the email (example below)
 
 Project  | Created | Data Usage | Created By | Age | Uploaded to Staging52 | Old Enough | 002 Directory Found
 ------------- | ------------- | ------------- | ------------- | ------------- | ------------- | ------------- | ------------- | 
@@ -32,7 +35,7 @@ Docker base image: python3.8-slim-buster \
 
 Run Command: ` docker run --env-file <environment filename> -v <local genetic dir>:<docker dir> test `
 
-Running the container requires mounting of two directories from local filesystem ` /genetics ` and ` /var/log ` to the docker container. This allows the docker container to read and write (log) into the local filesystem.
+Running the container requires mounting of two directories from local filesystem ` /genetics ` and ` /var/log ` to the docker container. This allows the docker container to read files in /genetic in ansible server and write (log) into the local filesystem.
 
 
 **Current tested command**: 
@@ -53,7 +56,7 @@ Running the container requires mounting of two directories from local filesystem
 7. `ANSIBLE_SEQ`: sequencing machine, **use comma to include more machines** (e.g. a01295, a01303, a1405)
 8. `HTTP_PROXY`: http proxy
 9. `HTTPS_PROXY`: https proxy
-10. ` ANSIBLE_MONTH `: number of month old (e.g. 3)
+10. ` ANSIBLE_WEEK `: number of week old (e.g. 6)
 11. ` DNANEXUS_TOKEN `: authentication token for dxpy login
 
 ## Logging
@@ -62,7 +65,7 @@ Logging function is written in ` helper.py ` with format ` %(asctime)s:%(name)s:
 
 E.g. ``` 2021-11-16 14:39:45,173```:```ansible main log```:```main```:```INFO```:```Fetching Dxpy API 211014_A01295_0031_AHL3MFDRXY started ```
 
-Log file (``` ansible-run-monitoring.log ```) will be stored in ``` /var/log/monitoring ```
+Log file (``` ansible-run-monitoring.log ```) will be stored in ``` /var/log/monitoring ``` in ansible server
 
 ## Automation
 
