@@ -95,7 +95,7 @@ def main():
                         created_on,
                         '{} GB'.format(round(proj_des['dataUsage'])),
                         proj_des['createdBy']['user'],
-                        duration.days,
+                        round(duration.days / 7, 2),
                         True,
                         uploaded_bool,
                         True
@@ -120,7 +120,7 @@ def main():
                         created_on,
                         '{} GB'.format(round(proj_des['dataUsage'])),
                         proj_des['createdBy']['user'],
-                        duration.days,
+                        round(duration.days / 7, 2),
                         False,
                         uploaded_bool,
                         True
@@ -138,7 +138,7 @@ def main():
                     'NO DATA',
                     'NO DATA',
                     'NO DATA',
-                    0,
+                    None,
                     False,
                     uploaded_bool,
                     False
@@ -176,14 +176,14 @@ def main():
             'Created',
             'Data Usage',
             'Created By',
-            'Age',
+            'Age (Weeks)',
             'Old Enough',
             'Uploaded to Staging52',
             '002 Directory Found'
             ]
         )
 
-    df = df.sort_values(by='Age', ascending=False)
+    df = df.sort_values(by='Age (Weeks)', ascending=False).reset_index()
 
     # send the txt file (attachment) and dataframe as table in email
     send_mail(
