@@ -1,16 +1,16 @@
 # Ansible Run Monitoring
 
-Python script to report successfully-uploaded (DNANexus) runs in ansible server mounted-volume `/genetics`
+Python script to report old runs in '/genetics' on ansible server by sending email to helpdesk.
 
 ## Script Workflow
 
 - Get all runs in `genetics` directory and `log` directory (`/var/log/dx-streaming-upload`) in ansible server
-- Compare runs in both directory for overlap
-- For each overlap, check if: (a) 002 project for it is created on DNANexus; (b) folder exist in Staging52
+- Compare runs in both directory for overlap (runs which have log in log directory)
+- Each runs need to fulfill two main criterias to be considered: (a) 002 project is created on DNANexus (b) run folder exist in Staging52
 - Compile all run which check both criteria and send an email to helpdesk with attachment (a text file of their respective directory path e.g. ` /genetics/A01295/ABC_RUNS`
-- Table will also be in the email (example below)
+- DataFrame Table will also be in the email (example below)
 
-Project  | Created | Data Usage | Created By | Age | Uploaded to Staging52 | Old Enough | 002 Directory Found
+Project  | Created | Data Usage | Created By | Age (Week) | Uploaded to Staging52 | Old Enough | 002 Directory Found
 ------------- | ------------- | ------------- | ------------- | ------------- | ------------- | ------------- | ------------- | 
 211115_A01295_0035_AHMYGGDRXY  | 2021-10-18 | 533.0 GB | user-aishadahir | 30 | True | True | True
 
@@ -33,26 +33,18 @@ Docker base image: python3.8-slim-buster \
 
 ## Running the Container
 
-Run Command: ` docker run --env-file <environment filename> -v <local genetic dir>:<docker dir> test `
+Run Command: ` docker run --env-file <env file> -v /genetics:/var/genetics -v /var/log:/var/log <docker image> `
 
 Running the container requires mounting of two directories from local filesystem ` /genetics ` and ` /var/log ` to the docker container. This allows the docker container to read files in /genetic in ansible server and write (log) into the local filesystem.
-
-
-**Current tested command**: 
-
-
-``` docker run --env-file <config.txt> -v /genetics:/var/genetics -v /var/log:/var/log  <image name> ```
-
-
 
 ## Config Env Variables
 
 1. `ANSIBLE_GENETICDIR`: the directory to look into for original genetic run. **This should be directory in docker container**
 2. `ANSIBLE_LOGSDIR`: the directory to look into for uploaded run logs **This should be directory in docker container**
 3. `ANSIBLE_SENDER`: the 'from' for email function (e.g. BioinformaticsTeamGeneticsLab@addenbrookes.nhs.uk)
-4. `ANSIBLE_RECEIVERS`: the 'send to' for email function, **use comma to include more emails** (e.g. abc@email.com, bbc@email.com)
-5. `ANSIBLE_SERVER`: server host (str) for smtp email function
-6. `ANSIBLE_PORT`: port number for smtp email function
+4. `ANSIBLE_RECEIVERS`: the 'send to' for email function, **use comma to include multiple emails** (e.g. abc@email.com, bbc@email.com)
+5. `ANSIBLE_SERVER`: server host (str) for SMTP email function
+6. `ANSIBLE_PORT`: port number for SMTP email function
 7. `ANSIBLE_SEQ`: sequencing machine, **use comma to include more machines** (e.g. a01295, a01303, a1405)
 8. `HTTP_PROXY`: http proxy
 9. `HTTPS_PROXY`: https proxy

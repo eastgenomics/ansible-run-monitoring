@@ -243,3 +243,9 @@ def send_mail(send_from, send_to, subject, df=None, files=None) -> None:
 
     except Exception as e:
         log.error(f'Send email function failed with error: {e}')
+        message = (
+            "Ansible-Monitoring: ERROR sending to helpdesk! Error Code: \n"
+            f"`{e}`"
+            )
+
+        post_message_to_slack('egg-alerts', message)
