@@ -1,9 +1,5 @@
 __pycache__
-env/
+env
 .env
-test.tar
-genetics
+log
 var
-duplicates.txt
-config.txt
-cron.sh
