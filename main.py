@@ -15,12 +15,37 @@ def main():
     LOGS_DIR = os.environ['ANSIBLE_LOGSDIR']
     NUM_WEEK = os.environ['ANSIBLE_WEEK']
 
-    sender = os.environ['ANSIBLE_SENDER']
+    SERVER = os.environ['ANSIBLE_SERVER']
+    PORT = int(os.environ['ANSIBLE_PORT'])
+
+    SENDER = os.environ['ANSIBLE_SENDER']
     receivers = os.environ['ANSIBLE_RECEIVERS']
     receivers = receivers.split(',') if ',' in receivers else [receivers]
 
-    dx_login()
-    dir_check([GENETIC_DIR, LOGS_DIR])
+    DEBUG = os.environ.get('ANSIBLE_DEBUG', False)
+    DNANEXUS_TOKEN = os.environ["DNANEXUS_TOKEN"]
+
+    if DEBUG:
+        log.info('Running in DEBUG mode')
+    else:
+        log.info('Running in PRODUCTION mode')
+
+    if dx_login(DNANEXUS_TOKEN):
+        pass
+    else:
+        message = "ANSIBLE-MONITORING: ERROR with dxpy login!"
+        post_message_to_slack('egg-alerts', message, DEBUG)
+        log.info('END SCRIPT')
+        sys.exit()
+
+    if directory_check([GENETIC_DIR, LOGS_DIR]):
+        pass
+    else:
+        message = f"ANSIBLE-MONITORING: ERROR with missing directory"
+
+        post_message_to_slack('egg-alerts', message, DEBUG)
+        log.info('END SCRIPT')
+        sys.exit()
 
     today = dt.datetime.today()
 
@@ -151,7 +176,7 @@ def main():
 
     if not final_duplicates:
         log.info(f'No runs older than {NUM_WEEK} weeks')
-        log.info('Program will stop here. There will be no email')
+        log.info('END SCRIPT')
         sys.exit()
 
     log.info(f'Number of old enough files: {len(final_duplicates)}')
@@ -164,9 +189,10 @@ def main():
         duplicates_dir.append(f'/genetics/{fileseq}/{file}')
 
     # saving the directories into txt file (newline)
-    log.info('Writing to text file')
-    with open('duplicates.txt', 'w') as f:
-        f.write('\n'.join(duplicates_dir))
+    if not DEBUG:
+        log.info('Writing to text file')
+        with open('duplicates.txt', 'w') as f:
+            f.write('\n'.join(duplicates_dir))
 
     # dataframe creation for all runs describe=True data
     df = pd.DataFrame(
@@ -186,16 +212,19 @@ def main():
     df = df.sort_values(by='Age (Weeks)', ascending=False).reset_index()
 
     # send the txt file (attachment) and dataframe as table in email
-    send_mail(
-        sender,
-        receivers,
-        'Ansible Run (Deletion)',
-        df,
-        ['duplicates.txt']
-    )
+    if not DEBUG:
+        send_mail(
+            SENDER,
+            receivers,
+            'Ansible Run (Deletion)',
+            SERVER,
+            PORT,
+            df=df,
+            files=['duplicates.txt']
+        )
 
 
 if __name__ == "__main__":
-    log.info('--------- Starting Script ---------')
+    log.info('STARTING SCRIPT')
     main()
-    log.info('--------- End Script ---------')
+    log.info('END SCRIPT')
