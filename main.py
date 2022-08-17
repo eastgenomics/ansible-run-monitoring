@@ -13,7 +13,7 @@ def main():
 
     GENETIC_DIR = os.environ['ANSIBLE_GENETICDIR']
     LOGS_DIR = os.environ['ANSIBLE_LOGSDIR']
-    NUM_WEEK = os.environ['ANSIBLE_WEEK']
+    ANSIBLE_WEEK = os.environ['ANSIBLE_WEEK']
 
     SERVER = os.environ['ANSIBLE_SERVER']
     PORT = int(os.environ['ANSIBLE_PORT'])
@@ -31,16 +31,13 @@ def main():
         log.info('Running in PRODUCTION mode')
 
     if dx_login(DNANEXUS_TOKEN):
-        pass
-    else:
         message = "ANSIBLE-MONITORING: ERROR with dxpy login!"
+
         post_message_to_slack('egg-alerts', message, DEBUG)
         log.info('END SCRIPT')
         sys.exit()
 
     if directory_check([GENETIC_DIR, LOGS_DIR]):
-        pass
-    else:
         message = f"ANSIBLE-MONITORING: ERROR with missing directory"
 
         post_message_to_slack('egg-alerts', message, DEBUG)
@@ -105,11 +102,11 @@ def main():
 
             duration = today - created_date
 
-            # check if created_date is more than NUM_WEEK week(s)
+            # check if created_date is more than ANSIBLE_WEEK week(s)
             # duration (sec) / 60 to minute / 60 to hour / 24 to days
             # If total days is > 7 days * 6 weeks
             old_enough = duration.total_seconds() / (
-                24*60*60) > 7 * int(NUM_WEEK)
+                24*60*60) > 7 * int(ANSIBLE_WEEK)
 
             if old_enough:
                 # folder is old enough = can be deleted
@@ -180,7 +177,7 @@ def main():
             continue
 
     if not final_duplicates:
-        log.info(f'No runs older than {NUM_WEEK} weeks')
+        log.info(f'No runs older than {ANSIBLE_WEEK} weeks')
         log.info('END SCRIPT')
         sys.exit()
 
