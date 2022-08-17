@@ -50,11 +50,14 @@ def main():
     today = dt.datetime.today()
 
     # get all sequencer in env
-    seqs = [x.upper() for x in os.environ['ANSIBLE_SEQ'].split(',')]
+    seqs = [x for x in os.environ['ANSIBLE_SEQ'].split(',')]
 
     duplicates = []
     final_duplicates = []
     table_data = []
+
+    genetic_directory = []
+    logs_directory = []
 
     for sequencer in seqs:
         log.info(f'Loop through {sequencer} started')
@@ -64,20 +67,22 @@ def main():
         logs_dir = f'{LOGS_DIR}/{sequencer}'
 
         # Get all files in gene and log dir
-        gene_dir = set([x.strip() for x in os.listdir(gene_dir)])
-        logs_dir = set([x.split('.')[1].strip() for x in os.listdir(logs_dir)])
+        genetic_directory += [x.strip() for x in os.listdir(gene_dir)]
+        logs_directory += [
+            x.split('.')[1].strip() for x in os.listdir(logs_dir)]
 
-        log.info(
-            f'Number of folders in genetic: {len(gene_dir)} for {sequencer}')
-        log.info(
-            f'Number of folders in log: {len(logs_dir)} for {sequencer}')
+        genetics_num = len(os.listdir(gene_dir))
+        logs_num = len(os.listdir(logs_dir))
 
-        # Get the duplicates between two directories /genetics & /var/log/
-        temp_duplicates = gene_dir & logs_dir
+        log.info(f'{genetics_num} folders in {sequencer} detected')
+        log.info(f'{logs_num} logs in {sequencer} detected')
 
-        log.info(f'Number of overlap files: {len(temp_duplicates)}')
+    # Get the duplicates between two directories /genetics & /var/log/
+    temp_duplicates = set(genetic_directory) & set(logs_directory)
 
-        duplicates += list(temp_duplicates)
+    log.info(f'Number of overlap files: {len(temp_duplicates)}')
+
+    duplicates += list(temp_duplicates)
 
     # for each project, we check if it exists on DNANexus
     for project in duplicates:
