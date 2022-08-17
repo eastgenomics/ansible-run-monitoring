@@ -30,14 +30,14 @@ def main():
     else:
         log.info('Running in PRODUCTION mode')
 
-    if dx_login(DNANEXUS_TOKEN):
+    if not dx_login(DNANEXUS_TOKEN):
         message = "ANSIBLE-MONITORING: ERROR with dxpy login!"
 
         post_message_to_slack('egg-alerts', message, DEBUG)
         log.info('END SCRIPT')
         sys.exit()
 
-    if directory_check([GENETIC_DIR, LOGS_DIR]):
+    if not directory_check([GENETIC_DIR, LOGS_DIR]):
         message = f"ANSIBLE-MONITORING: ERROR with missing directory"
 
         post_message_to_slack('egg-alerts', message, DEBUG)
