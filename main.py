@@ -13,23 +13,48 @@ def main():
 
     GENETIC_DIR = os.environ['ANSIBLE_GENETICDIR']
     LOGS_DIR = os.environ['ANSIBLE_LOGSDIR']
-    NUM_WEEK = os.environ['ANSIBLE_WEEK']
+    ANSIBLE_WEEK = os.environ['ANSIBLE_WEEK']
 
-    sender = os.environ['ANSIBLE_SENDER']
+    SERVER = os.environ['ANSIBLE_SERVER']
+    PORT = int(os.environ['ANSIBLE_PORT'])
+
+    SENDER = os.environ['ANSIBLE_SENDER']
     receivers = os.environ['ANSIBLE_RECEIVERS']
     receivers = receivers.split(',') if ',' in receivers else [receivers]
 
-    dx_login()
-    dir_check([GENETIC_DIR, LOGS_DIR])
+    DEBUG = os.environ.get('ANSIBLE_DEBUG', False)
+    DNANEXUS_TOKEN = os.environ["DNANEXUS_TOKEN"]
+
+    if DEBUG:
+        log.info('Running in DEBUG mode')
+    else:
+        log.info('Running in PRODUCTION mode')
+
+    if not dx_login(DNANEXUS_TOKEN):
+        message = "ANSIBLE-MONITORING: ERROR with dxpy login!"
+
+        post_message_to_slack('egg-alerts', message, DEBUG)
+        log.info('END SCRIPT')
+        sys.exit()
+
+    if not directory_check([GENETIC_DIR, LOGS_DIR]):
+        message = f"ANSIBLE-MONITORING: ERROR with missing directory"
+
+        post_message_to_slack('egg-alerts', message, DEBUG)
+        log.info('END SCRIPT')
+        sys.exit()
 
     today = dt.datetime.today()
 
     # get all sequencer in env
-    seqs = [x.upper() for x in os.environ['ANSIBLE_SEQ'].split(',')]
+    seqs = [x for x in os.environ['ANSIBLE_SEQ'].split(',')]
 
     duplicates = []
     final_duplicates = []
     table_data = []
+
+    genetic_directory = []
+    logs_directory = []
 
     for sequencer in seqs:
         log.info(f'Loop through {sequencer} started')
@@ -39,20 +64,22 @@ def main():
         logs_dir = f'{LOGS_DIR}/{sequencer}'
 
         # Get all files in gene and log dir
-        gene_dir = set([x.strip() for x in os.listdir(gene_dir)])
-        logs_dir = set([x.split('.')[1].strip() for x in os.listdir(logs_dir)])
+        genetic_directory += [x.strip() for x in os.listdir(gene_dir)]
+        logs_directory += [
+            x.split('.')[1].strip() for x in os.listdir(logs_dir)]
 
-        log.info(
-            f'Number of folders in genetic: {len(gene_dir)} for {sequencer}')
-        log.info(
-            f'Number of folders in log: {len(logs_dir)} for {sequencer}')
+        genetics_num = len(os.listdir(gene_dir))
+        logs_num = len(os.listdir(logs_dir))
 
-        # Get the duplicates between two directories /genetics & /var/log/
-        temp_duplicates = gene_dir & logs_dir
+        log.info(f'{genetics_num} folders in {sequencer} detected')
+        log.info(f'{logs_num} logs in {sequencer} detected')
 
-        log.info(f'Number of overlap files: {len(temp_duplicates)}')
+    # Get the duplicates between two directories /genetics & /var/log/
+    temp_duplicates = set(genetic_directory) & set(logs_directory)
 
-        duplicates += list(temp_duplicates)
+    log.info(f'Number of overlap files: {len(temp_duplicates)}')
+
+    duplicates += list(temp_duplicates)
 
     # for each project, we check if it exists on DNANexus
     for project in duplicates:
@@ -75,11 +102,11 @@ def main():
 
             duration = today - created_date
 
-            # check if created_date is more than NUM_WEEK week(s)
+            # check if created_date is more than ANSIBLE_WEEK week(s)
             # duration (sec) / 60 to minute / 60 to hour / 24 to days
             # If total days is > 7 days * 6 weeks
             old_enough = duration.total_seconds() / (
-                24*60*60) > 7 * int(NUM_WEEK)
+                24*60*60) > 7 * int(ANSIBLE_WEEK)
 
             if old_enough:
                 # folder is old enough = can be deleted
@@ -150,8 +177,8 @@ def main():
             continue
 
     if not final_duplicates:
-        log.info(f'No runs older than {NUM_WEEK} weeks')
-        log.info('Program will stop here. There will be no email')
+        log.info(f'No runs older than {ANSIBLE_WEEK} weeks')
+        log.info('END SCRIPT')
         sys.exit()
 
     log.info(f'Number of old enough files: {len(final_duplicates)}')
@@ -164,9 +191,10 @@ def main():
         duplicates_dir.append(f'/genetics/{fileseq}/{file}')
 
     # saving the directories into txt file (newline)
-    log.info('Writing to text file')
-    with open('duplicates.txt', 'w') as f:
-        f.write('\n'.join(duplicates_dir))
+    if not DEBUG:
+        log.info('Writing to text file')
+        with open('duplicates.txt', 'w') as f:
+            f.write('\n'.join(duplicates_dir))
 
     # dataframe creation for all runs describe=True data
     df = pd.DataFrame(
@@ -186,16 +214,19 @@ def main():
     df = df.sort_values(by='Age (Weeks)', ascending=False).reset_index()
 
     # send the txt file (attachment) and dataframe as table in email
-    send_mail(
-        sender,
-        receivers,
-        'Ansible Run (Deletion)',
-        df,
-        ['duplicates.txt']
-    )
+    if not DEBUG:
+        send_mail(
+            SENDER,
+            receivers,
+            'Ansible Run (Deletion)',
+            SERVER,
+            PORT,
+            df=df,
+            files=['duplicates.txt']
+        )
 
 
 if __name__ == "__main__":
-    log.info('--------- Starting Script ---------')
+    log.info('STARTING SCRIPT')
     main()
-    log.info('--------- End Script ---------')
+    log.info('END SCRIPT')

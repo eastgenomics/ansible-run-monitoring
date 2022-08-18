@@ -2,6 +2,7 @@ import os
 import sys
 import smtplib
 import requests
+import dxpy as dx
 
 from os.path import basename
 from email.mime.application import MIMEApplication
@@ -9,27 +10,27 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.utils import COMMASPACE, formatdate
 from tabulate import tabulate
-from dotenv import load_dotenv
 
 from helper import get_logger
-import dxpy as dx
-
-load_dotenv()
 
 log = get_logger("util log")
 
 
-def post_message_to_slack(channel, message):
+def post_message_to_slack(channel: str, message: str, debug: bool) -> None:
     """
     Function to send Slack notification
     Inputs:
-        channel: egg-alerts
+        channel: egg-alerts etc
         message: text
+        debug: whether debug mode (channel: egg-test) or not
     Returns:
         dict: slack api response
     """
 
     log.info(f'Sending POST request to channel: #{channel}')
+
+    if debug:
+        channel = 'egg-test'
 
     try:
         response = requests.post('https://slack.com/api/chat.postMessage', {
@@ -44,7 +45,7 @@ def post_message_to_slack(channel, message):
         else:
             # slack api request failed
             error_code = response['error']
-            log.error(f'Error Code From Slack: {error_code}')
+            log.error(error_code)
 
     except Exception as e:
         # endpoint request fail from server
@@ -52,11 +53,14 @@ def post_message_to_slack(channel, message):
         log.error(e)
 
 
-def dir_check(directories):
+def directory_check(directories: list) -> bool:
 
     """
     Function to check if directory exist
     Mainly to check if /genetic and /var/log/monitoring exist
+    Input:
+        directories: directory path
+    Output: bool
     """
 
     for dir in directories:
@@ -64,56 +68,45 @@ def dir_check(directories):
             continue
         else:
             log.error(f'{dir} not found')
-            message = (
-                f"ansible-monitoring: Missing directory: {dir}"
-            )
+            return False
 
-            post_message_to_slack('egg-alerts', message)
-            log.info('Script will stop here.')
-            sys.exit()
+    return True
 
 
-def dx_login():
+def dx_login(token: str) -> bool:
 
     """
-    Function to fetch dxpy auth token
-    and try login user
-    If error, send error msg to Slack
+    Function to check dxpy login
+    Input: dxpy token
+    Output: boolean
     """
 
     # try to get auth token from env (i.e. run in docker)
     try:
-        AUTH_TOKEN = os.environ["DNANEXUS_TOKEN"]
-
         DX_SECURITY_CONTEXT = {
             "auth_token_type": "Bearer",
-            "auth_token": AUTH_TOKEN
+            "auth_token": token
         }
 
         dx.set_security_context(DX_SECURITY_CONTEXT)
         dx.api.system_whoami()
 
-    except Exception as err:
-        log.error(err)
+        return True
 
-        message = (
-            "Ansible-Monitoring: ERROR with dxpy login! Error Code: \n"
-            f"`{err}`"
-            )
+    except Exception as error:
+        log.error(error)
 
-        post_message_to_slack('egg-alerts', message)
-        log.info('Script will stop here.')
-        sys.exit()
+        return False
 
 
-def check_project_directory(project):
+def check_project_directory(project: str):
 
     """
     Function to check if project is in staging52.
     Input:
         project: directory path
     Return:
-        Boolean
+        boolean
     """
 
     dx_obj = list(dx.find_data_objects(
@@ -125,10 +118,19 @@ def check_project_directory(project):
     if dx_obj:
         return True
 
+    dx_obj = list(dx.find_data_objects(
+        project='project-FpVG0G84X7kzq58g19vF1YJQ',
+        folder=f'/processed/{project}',
+        limit=1)
+    )
+
+    if dx_obj:
+        return True
+
     return False
 
 
-def get_describe_data(project):
+def get_describe_data(project: str):
 
     """
     Function to see if there is 002 project
@@ -149,7 +151,14 @@ def get_describe_data(project):
     return dxes[0] if dxes else []
 
 
-def send_mail(send_from, send_to, subject, df=None, files=None) -> None:
+def send_mail(
+        send_from: str,
+        send_to: list,
+        subject: str,
+        server: str,
+        port: int,
+        df=None,
+        files=None) -> None:
 
     """
     Function to send server email.
@@ -228,12 +237,8 @@ def send_mail(send_from, send_to, subject, df=None, files=None) -> None:
         part['Content-Disposition'] = 'attachment; filename="%s"' % basename(f)
         msg.attach(part)
 
-    # define server and port for smtp
-    SERVER = os.environ['ANSIBLE_SERVER']
-    PORT = int(os.environ['ANSIBLE_PORT'])
-
     try:
-        smtp = smtplib.SMTP(SERVER, PORT)
+        smtp = smtplib.SMTP(server, port)
 
         log.info(f'Sending email to {COMMASPACE.join(send_to)}')
         smtp.sendmail(send_from, send_to, msg.as_string())
