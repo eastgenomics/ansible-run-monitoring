@@ -4,4 +4,4 @@ env
 log
 genetics
 .vscode
-jira.py
+test.py

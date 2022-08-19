@@ -1,8 +1,11 @@
 import os
-import sys
 import smtplib
 import requests
 import dxpy as dx
+import pickle
+import collections
+import json
+import datetime as dt
 
 from os.path import basename
 from email.mime.application import MIMEApplication
@@ -10,18 +13,26 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.utils import COMMASPACE, formatdate
 from tabulate import tabulate
+from urllib3.util import Retry
+from requests.adapters import HTTPAdapter
 
 from helper import get_logger
 
 log = get_logger("util log")
 
 
-def post_message_to_slack(channel: str, message: str, debug: bool) -> None:
+def post_message_to_slack(
+        channel: str,
+        token: str,
+        message,
+        debug: bool,
+        today=None,
+        notification: bool = False) -> None:
     """
     Function to send Slack notification
     Inputs:
         channel: egg-alerts etc
-        message: text
+        message: str or list
         debug: whether debug mode (channel: egg-test) or not
     Returns:
         dict: slack api response
@@ -29,28 +40,103 @@ def post_message_to_slack(channel: str, message: str, debug: bool) -> None:
 
     log.info(f'Sending POST request to channel: #{channel}')
 
+    http = requests.Session()
+    retries = Retry(total=5, backoff_factor=10, method_whitelist=['POST'])
+    http.mount("https://", HTTPAdapter(max_retries=retries))
+
     if debug:
         channel = 'egg-test'
 
-    try:
-        response = requests.post('https://slack.com/api/chat.postMessage', {
-            'token': os.environ['SLACK_TOKEN'],
-            'channel': f'#{channel}',
-            'text': message
-        }).json()
+    if not notification:
+        try:
+            response = http.post('https://slack.com/api/chat.postMessage', {
+                'token': token,
+                'channel': f'#{channel}',
+                'text': message
+            }).json()
 
-        if response['ok']:
-            log.info(f'POST request to channel #{channel} successful')
-            return
+            if response['ok']:
+                log.info(f'POST request to channel #{channel} successful')
+                return
+            else:
+                # slack api request failed
+                error_code = response['error']
+                log.error(error_code)
+
+        except Exception as e:
+            # endpoint request fail from internal server side
+            log.error(f'Error sending POST request to channel #{channel}')
+            log.error(e)
+    else:
+        data = []
+
+        URL = 'https://cuhbioinformatics.atlassian.net/jira/servicedesk'
+        slack_url = f'{URL}/projects/EBH/queues/custom/17/'
+
+        for run, _, status, key in message:
+            data.append(f'<{slack_url}{key}|{run}> with status `{status}`')
+
+        text_data = '\n'.join(data)
+
+        today = get_next_month(today).strftime("%d %b %Y")
+
+        pretext = (
+            'ansible-run-monitoring: '
+            f'runs that will be deleted on {today}'
+        )
+
+        # number above 7,995 seems to get truncation
+        if len(text_data) < 7995:
+
+            response = http.post(
+                'https://slack.com/api/chat.postMessage', {
+                    'token': token,
+                    'channel': f'#{channel}',
+                    'attachments': json.dumps([{
+                        "pretext": pretext,
+                        "text": text_data}])
+                }).json()
         else:
-            # slack api request failed
-            error_code = response['error']
-            log.error(error_code)
+            # chunk data based on its length after '\n'.join()
+            # if > than 7,995 after join(), we append
+            # data[start:end-1] into chunks.
+            # start = end - 1 and repeat
+            chunks = []
+            start = 0
+            end = 1
 
-    except Exception as e:
-        # endpoint request fail from server
-        log.error(f'Error sending POST request to channel #{channel}')
-        log.error(e)
+            for index in range(1, len(data) + 1):
+                chunk = data[start:end]
+
+                if len('\n'.join(chunk)) < 7995:
+                    end = index
+
+                    if end == len(data):
+                        chunks.append(data[start:end])
+                else:
+                    chunks.append(data[start:end-1])
+                    start = end - 1
+
+            log.info(f'Sending data in {len(chunks)} chunks')
+
+            for chunk in chunks:
+                text_data = '\n'.join(chunk)
+
+                response = http.post(
+                    'https://slack.com/api/chat.postMessage', {
+                        'token': token,
+                        'channel': f'#{channel}',
+                        'attachments': json.dumps([{
+                            "pretext": pretext,
+                            "text": text_data}])
+                    }).json()
+
+                if response['ok']:
+                    log.info(f'POST request to channel #{channel} successful')
+                    continue
+                else:
+                    error_code = response['error']
+                    log.error(error_code)
 
 
 def directory_check(directories: list) -> bool:
@@ -254,3 +340,39 @@ def send_mail(
             )
 
         post_message_to_slack('egg-alerts', message)
+
+
+def read_or_new_pickle(path: str) -> dict:
+    """
+    Read stored pickle memory for the script
+    Using defaultdict() automatically create new dict.key()
+    Input:
+        Path to store the pickle (memory)
+    Returns:
+        dict: the stored pickle dict
+    """
+    if os.path.isfile(path):
+        with open(path, 'rb') as f:
+            pickle_dict = pickle.load(f)
+    else:
+        pickle_dict = collections.defaultdict(list)
+        with open(path, 'wb') as f:
+            pickle.dump(pickle_dict, f)
+
+    return pickle_dict
+
+
+def get_next_month(today):
+    """
+    Function to get the next automated-archive run date
+    Input:
+        today (Datetime)
+    Return (Datetime):
+        If today.day is between 1-15: return 15th of this month
+        If today.day is after 15: return 1st day of next month
+    """
+
+    while today.day != 1:
+        today += dt.timedelta(days=1)
+
+    return today

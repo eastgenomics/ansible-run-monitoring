@@ -1,10 +1,12 @@
 import os
 import sys
-import datetime as dt
+from datetime import datetime
 import pandas as pd
+import shutil
 
 from util import *
 from helper import get_logger
+from jira import Jira
 
 log = get_logger("main log")
 
@@ -13,7 +15,8 @@ def main():
 
     GENETIC_DIR = os.environ['ANSIBLE_GENETICDIR']
     LOGS_DIR = os.environ['ANSIBLE_LOGSDIR']
-    ANSIBLE_WEEK = os.environ['ANSIBLE_WEEK']
+    ANSIBLE_WEEK = int(os.environ['ANSIBLE_WEEK'])
+    ANSIBLE_PICKLE = os.environ['ANSIBLE_PICKLE_PATH']
 
     SERVER = os.environ['ANSIBLE_SERVER']
     PORT = int(os.environ['ANSIBLE_PORT'])
@@ -23,7 +26,14 @@ def main():
     receivers = receivers.split(',') if ',' in receivers else [receivers]
 
     DEBUG = os.environ.get('ANSIBLE_DEBUG', False)
+
     DNANEXUS_TOKEN = os.environ["DNANEXUS_TOKEN"]
+    SLACK_TOKEN = os.environ['SLACK_TOKEN']
+
+    JIRA_TOKEN = os.environ['JIRA_TOKEN']
+    JIRA_EMAIL = os.environ['JIRA_EMAIL']
+    JIRA_ARRAY = [
+        array for array in os.environ['ANSIBLE_JIRA_ARRAY'].split(',')]
 
     if DEBUG:
         log.info('Running in DEBUG mode')
@@ -33,23 +43,57 @@ def main():
     if not dx_login(DNANEXUS_TOKEN):
         message = "ANSIBLE-MONITORING: ERROR with dxpy login!"
 
-        post_message_to_slack('egg-alerts', message, DEBUG)
+        post_message_to_slack('egg-alerts', SLACK_TOKEN, message, DEBUG)
         log.info('END SCRIPT')
         sys.exit()
 
     if not directory_check([GENETIC_DIR, LOGS_DIR]):
         message = f"ANSIBLE-MONITORING: ERROR with missing directory"
 
-        post_message_to_slack('egg-alerts', message, DEBUG)
+        post_message_to_slack('egg-alerts', SLACK_TOKEN, message, DEBUG)
         log.info('END SCRIPT')
         sys.exit()
 
-    today = dt.datetime.today()
+    today = datetime.now()
+
+    ansible_pickle = read_or_new_pickle(ANSIBLE_PICKLE)
+    runs = ansible_pickle['runs']
+
+    jira = Jira(JIRA_TOKEN, JIRA_EMAIL)
+
+    if today.day == 1:
+        for run, seq, _, _ in runs:
+            try:
+                if not DEBUG:
+                    log.info(f'DELETING {run}')
+                    shutil.rmtree(f'{GENETIC_DIR}/{seq}/{run}')
+                else:
+                    log.info('DEBUG: DELETE RUNS...')
+            except OSError as err:
+                log.error(err)
+                log.info('END SCRIPT')
+                sys.exit()
+    else:
+        log.info(today)
+        if runs:
+            post_message_to_slack(
+                'egg-logs',
+                SLACK_TOKEN,
+                runs,
+                DEBUG,
+                today,
+                True)
+        else:
+            log.info('NO RUNS DETECTED')
+
+        log.info('END SCRIPT')
+        sys.exit()
 
     # get all sequencer in env
     seqs = [x for x in os.environ['ANSIBLE_SEQ'].split(',')]
 
-    duplicates = []
+    temp_pickle = []
+    temp_sequencer = {}
     final_duplicates = []
     table_data = []
 
@@ -64,9 +108,13 @@ def main():
         logs_dir = f'{LOGS_DIR}/{sequencer}'
 
         # Get all files in gene and log dir
-        genetic_directory += [x.strip() for x in os.listdir(gene_dir)]
+        genetic_files = [x.strip() for x in os.listdir(gene_dir)]
+        genetic_directory += genetic_files
         logs_directory += [
             x.split('.')[1].strip() for x in os.listdir(logs_dir)]
+
+        for run in genetic_files:
+            temp_sequencer[run] = sequencer
 
         genetics_num = len(os.listdir(gene_dir))
         logs_num = len(os.listdir(logs_dir))
@@ -79,10 +127,8 @@ def main():
 
     log.info(f'Number of overlap files: {len(temp_duplicates)}')
 
-    duplicates += list(temp_duplicates)
-
     # for each project, we check if it exists on DNANexus
-    for project in duplicates:
+    for project in list(temp_duplicates):
 
         # check uploaded to staging52 project file (bool)
         uploaded_bool = check_project_directory(project)
@@ -90,13 +136,15 @@ def main():
         # check 002_ folder created
         proj_data = get_describe_data(project)
 
+        array, status, key = jira.get_issue_detail(project)
+
         if proj_data:
             # 002_ folder found
 
             proj_des = proj_data['describe']
 
             # convert millisec from Epoch datetime to readable human format
-            created_date = dt.datetime.fromtimestamp(
+            created_date = datetime.fromtimestamp(
                 proj_des['created'] / 1000.0)
             created_on = created_date.strftime('%Y-%m-%d')
 
@@ -111,35 +159,65 @@ def main():
             if old_enough:
                 # folder is old enough = can be deleted
 
-                log.info('{} {} ::: {} days PASS'.format(
-                    project,
-                    created_on,
-                    duration.days))
+                if (
+                        status.upper() == 'ALL SAMPLES RELEASED' and
+                        array in JIRA_ARRAY):
+                    temp_pickle.append(
+                        (project, temp_sequencer[project], status, key))
 
-                table_data.append(
-                    (
+                    log.info('{} {} ::: {} weeks PASS'.format(
                         project,
                         created_on,
-                        '{} GB'.format(round(proj_des['dataUsage'])),
-                        proj_des['createdBy']['user'],
-                        round(duration.days / 7, 2),
-                        True,
-                        uploaded_bool,
-                        True
+                        duration.days / 7))
+
+                    table_data.append(
+                        (
+                            project,
+                            created_on,
+                            '{} GB'.format(round(proj_des['dataUsage'])),
+                            proj_des['createdBy']['user'],
+                            round(duration.days / 7, 2),
+                            True,
+                            uploaded_bool,
+                            True,
+                            f'{array}:{status}:True'
+                        )
                     )
-                )
 
-                final_duplicates.append(project)
+                    continue
+                else:
+                    log.info('{} {} ::: {} weeks FAILED JIRA - {}/{}'.format(
+                        project,
+                        created_on,
+                        round(duration.days / 7, 2),
+                        array,
+                        status))
 
-                continue
+                    table_data.append(
+                        (
+                            project,
+                            created_on,
+                            '{} GB'.format(round(proj_des['dataUsage'])),
+                            proj_des['createdBy']['user'],
+                            round(duration.days / 7, 2),
+                            True,
+                            uploaded_bool,
+                            True,
+                            f'{array}:{status}:False'
+                        )
+                    )
+
+                    final_duplicates.append(project)
+
+                    continue
 
             else:
                 # folder is not old enough
 
-                log.info('{} {} ::: {} days REJECTED'.format(
+                log.info('{} {} ::: {} weeks REJECTED'.format(
                     project,
                     created_on,
-                    duration.days))
+                    round(duration.days / 7, 2)))
 
                 table_data.append(
                     (
@@ -150,7 +228,8 @@ def main():
                         round(duration.days / 7, 2),
                         False,
                         uploaded_bool,
-                        True
+                        True,
+                        f'{array}:{status}:False'
                     )
                 )
 
@@ -162,17 +241,18 @@ def main():
             table_data.append(
                 (
                     project,
-                    'NO DATA',
-                    'NO DATA',
-                    'NO DATA',
+                    None,
+                    None,
+                    None,
                     None,
                     False,
                     uploaded_bool,
-                    False
+                    False,
+                    f'{array}:{status}:False'
                 )
             )
 
-            log.info(f'No proj describe data for: {project}')
+            log.info(f'NO DATA FOR: {project}')
 
             continue
 
@@ -206,12 +286,14 @@ def main():
             'Created By',
             'Age (Weeks)',
             'Old Enough',
-            'Uploaded to Staging52',
-            '002 Directory Found'
+            'Present in Staging52',
+            '002 Project Found',
+            'Array:Jira Status:Delete'
             ]
         )
 
-    df = df.sort_values(by='Age (Weeks)', ascending=False).reset_index()
+    df = df.sort_values(
+        by='Age (Weeks)', ascending=False).reset_index(drop=True)
 
     # send the txt file (attachment) and dataframe as table in email
     if not DEBUG:
@@ -224,6 +306,13 @@ def main():
             df=df,
             files=['duplicates.txt']
         )
+
+    # save memory dict (in PROD only)
+    ansible_pickle['runs'] = temp_pickle
+
+    log.info('Writing into pickle file')
+    with open(ANSIBLE_PICKLE, 'wb') as f:
+        pickle.dump(ansible_pickle, f)
 
 
 if __name__ == "__main__":

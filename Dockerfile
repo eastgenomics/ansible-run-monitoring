@@ -7,6 +7,6 @@ WORKDIR /
 COPY requirements.txt requirements.txt
 RUN pip install -r requirements.txt
 
-COPY main.py util.py helper.py /
+COPY main.py util.py helper.py jira.py /
 
 CMD [ "python", "main.py"]
