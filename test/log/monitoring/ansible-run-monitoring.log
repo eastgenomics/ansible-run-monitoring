@@ -1,0 +1,103 @@
+2022-09-01 11:00:14,974:main log:main:INFO:STARTING SCRIPT
+2022-09-01 11:00:14,975:main log:main:INFO:Running in DEBUG mode
+2022-09-01 11:00:15,335:util log:util:INFO:Loop through A01295a started
+2022-09-01 11:00:15,336:util log:util:INFO:2 folders in A01295a detected
+2022-09-01 11:00:15,336:util log:util:INFO:1 logs in A01295a detected
+2022-09-01 11:00:15,336:util log:util:INFO:Loop through A01303a started
+2022-09-01 11:00:15,336:util log:util:INFO:1 folders in A01303a detected
+2022-09-01 11:00:15,336:util log:util:INFO:0 logs in A01303a detected
+2022-09-01 11:00:15,336:util log:util:INFO:Loop through A01295b started
+2022-09-01 11:00:15,336:util log:util:INFO:1 folders in A01295b detected
+2022-09-01 11:00:15,336:util log:util:INFO:0 logs in A01295b detected
+2022-09-01 11:00:15,336:util log:util:INFO:Loop through A01303b started
+2022-09-01 11:00:15,336:util log:util:INFO:1 folders in A01303b detected
+2022-09-01 11:00:15,336:util log:util:INFO:0 logs in A01303b detected
+2022-09-01 11:00:15,336:main log:main:INFO:Number of overlap files: 1
+2022-09-01 11:00:16,411:main log:main:INFO:220316_A01295_0068_AH7H2GDMXY 2022-03-18 ::: 23.714285714285715 weeks PASS
+2022-09-01 11:00:16,412:main log:main:INFO:Number of old enough files: 1
+2022-09-01 11:00:16,412:main log:main:INFO:Writing to text file
+2022-09-01 11:00:16,414:main log:main:INFO:Writing into pickle file
+2022-09-01 11:00:16,414:main log:main:INFO:END SCRIPT
+2022-08-23 11:00:44,908:main log:main:INFO:STARTING SCRIPT
+2022-08-23 11:00:44,908:main log:main:INFO:Running in DEBUG mode
+2022-08-23 11:00:45,261:main log:main:INFO:2022-08-23 11:00:45.261271
+2022-08-23 11:00:45,261:util log:util:INFO:Sending POST request to channel: #egg-logs
+2022-08-23 11:00:45,545:util log:util:INFO:POST request to channel #egg-test successful
+2022-08-23 11:00:45,546:main log:main:INFO:END SCRIPT
+2022-08-23 11:09:55,675:main log:main:INFO:STARTING SCRIPT
+2022-08-23 11:09:55,676:main log:main:INFO:Running in DEBUG mode
+2022-08-23 11:09:56,053:main log:main:INFO:2022-08-23 11:09:56.046877
+2022-08-23 11:09:56,053:util log:util:INFO:Sending POST request to channel: #egg-logs
+2022-08-23 11:09:56,250:util log:util:INFO:POST request to channel #egg-test successful
+2022-08-23 11:09:56,252:main log:main:INFO:END SCRIPT
+2022-09-01 11:15:07,699:main log:main:INFO:STARTING SCRIPT
+2022-09-01 11:15:07,699:main log:main:INFO:Running in DEBUG mode
+2022-09-01 11:15:08,061:main log:main:INFO:DELETING 220316_A01295_0068_AH7H2GDMXY
+2022-09-01 11:15:08,062:util log:util:INFO:Sending POST request to channel: #egg-alerts
+2022-09-01 11:15:08,262:util log:util:INFO:POST request to channel #egg-test successful
+2022-09-01 11:15:08,263:util log:util:INFO:Loop through A01295a started
+2022-09-01 11:15:08,264:util log:util:INFO:4 folders in A01295a detected
+2022-09-01 11:15:08,264:util log:util:INFO:1 logs in A01295a detected
+2022-09-01 11:15:08,264:util log:util:INFO:Loop through A01303a started
+2022-09-01 11:15:08,264:util log:util:INFO:1 folders in A01303a detected
+2022-09-01 11:15:08,264:util log:util:INFO:0 logs in A01303a detected
+2022-09-01 11:15:08,264:util log:util:INFO:Loop through A01295b started
+2022-09-01 11:15:08,264:util log:util:INFO:1 folders in A01295b detected
+2022-09-01 11:15:08,265:util log:util:INFO:0 logs in A01295b detected
+2022-09-01 11:15:08,265:util log:util:INFO:Loop through A01303b started
+2022-09-01 11:15:08,265:util log:util:INFO:1 folders in A01303b detected
+2022-09-01 11:15:08,265:util log:util:INFO:0 logs in A01303b detected
+2022-09-01 11:15:08,265:main log:main:INFO:Number of overlap files: 1
+2022-09-01 11:15:09,594:main log:main:INFO:220304_A01295_0063_AH7TFVDMXY 2022-03-08 ::: 25.285714285714285 weeks PASS
+2022-09-01 11:15:09,595:main log:main:INFO:Number of old enough files: 1
+2022-09-01 11:15:09,595:main log:main:INFO:Writing to text file
+2022-09-01 11:15:09,597:main log:main:INFO:Writing into pickle file
+2022-09-01 11:15:09,597:main log:main:INFO:END SCRIPT
+2022-09-01 11:17:13,877:main log:main:INFO:STARTING SCRIPT
+2022-09-01 11:17:13,877:main log:main:INFO:Running in DEBUG mode
+2022-09-01 11:17:14,236:main log:main:INFO:DELETING 220304_A01295_0063_AH7TFVDMXY
+2022-09-01 11:17:14,236:util log:util:INFO:Sending POST request to channel: #egg-alerts
+2022-09-01 11:17:14,522:util log:util:INFO:POST request to channel #egg-test successful
+2022-09-01 11:17:14,524:util log:util:INFO:Loop through A01295a started
+2022-09-01 11:17:14,524:util log:util:INFO:3 folders in A01295a detected
+2022-09-01 11:17:14,524:util log:util:INFO:4 logs in A01295a detected
+2022-09-01 11:17:14,524:util log:util:INFO:Loop through A01303a started
+2022-09-01 11:17:14,525:util log:util:INFO:1 folders in A01303a detected
+2022-09-01 11:17:14,525:util log:util:INFO:0 logs in A01303a detected
+2022-09-01 11:17:14,525:util log:util:INFO:Loop through A01295b started
+2022-09-01 11:17:14,525:util log:util:INFO:1 folders in A01295b detected
+2022-09-01 11:17:14,525:util log:util:INFO:0 logs in A01295b detected
+2022-09-01 11:17:14,525:util log:util:INFO:Loop through A01303b started
+2022-09-01 11:17:14,525:util log:util:INFO:1 folders in A01303b detected
+2022-09-01 11:17:14,525:util log:util:INFO:0 logs in A01303b detected
+2022-09-01 11:17:14,525:main log:main:INFO:Number of overlap files: 2
+2022-09-01 11:17:15,693:main log:main:INFO:220426_A01295_0090_AH3WHGDRX2 2022-04-27 ::: 18.142857142857142 weeks PASS
+2022-09-01 11:17:17,083:main log:main:INFO:NO DATA FOR: 220419_A01295_0086_BH2W2JDRX2
+2022-09-01 11:17:17,083:main log:main:INFO:Number of old enough files: 1
+2022-09-01 11:17:17,083:main log:main:INFO:Writing to text file
+2022-09-01 11:17:17,085:main log:main:INFO:Writing into pickle file
+2022-09-01 11:17:17,085:main log:main:INFO:END SCRIPT
+2022-09-01 11:18:05,316:main log:main:INFO:STARTING SCRIPT
+2022-09-01 11:18:05,316:main log:main:INFO:Running in DEBUG mode
+2022-09-01 11:18:05,667:main log:main:INFO:DELETING 220426_A01295_0090_AH3WHGDRX2
+2022-09-01 11:18:05,667:util log:util:INFO:Sending POST request to channel: #egg-alerts
+2022-09-01 11:18:05,873:util log:util:INFO:POST request to channel #egg-test successful
+2022-09-01 11:18:05,875:util log:util:INFO:Loop through A01295a started
+2022-09-01 11:18:05,876:util log:util:INFO:3 folders in A01295a detected
+2022-09-01 11:18:05,876:util log:util:INFO:4 logs in A01295a detected
+2022-09-01 11:18:05,876:util log:util:INFO:Loop through A01303a started
+2022-09-01 11:18:05,876:util log:util:INFO:1 folders in A01303a detected
+2022-09-01 11:18:05,876:util log:util:INFO:0 logs in A01303a detected
+2022-09-01 11:18:05,876:util log:util:INFO:Loop through A01295b started
+2022-09-01 11:18:05,876:util log:util:INFO:1 folders in A01295b detected
+2022-09-01 11:18:05,876:util log:util:INFO:0 logs in A01295b detected
+2022-09-01 11:18:05,876:util log:util:INFO:Loop through A01303b started
+2022-09-01 11:18:05,877:util log:util:INFO:1 folders in A01303b detected
+2022-09-01 11:18:05,877:util log:util:INFO:0 logs in A01303b detected
+2022-09-01 11:18:05,877:main log:main:INFO:Number of overlap files: 2
+2022-09-01 11:18:06,952:main log:main:INFO:220503_A01303_0065_AH3WHNDRX2 2022-05-04 ::: 17.0 weeks PASS
+2022-09-01 11:18:07,880:main log:main:INFO:NO DATA FOR: 220419_A01295_0086_BH2W2JDRX2
+2022-09-01 11:18:07,880:main log:main:INFO:Number of old enough files: 1
+2022-09-01 11:18:07,880:main log:main:INFO:Writing to text file
+2022-09-01 11:18:07,882:main log:main:INFO:Writing into pickle file
+2022-09-01 11:18:07,882:main log:main:INFO:END SCRIPT

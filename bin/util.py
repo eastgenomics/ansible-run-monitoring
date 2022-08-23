@@ -16,7 +16,7 @@ from tabulate import tabulate
 from urllib3.util import Retry
 from requests.adapters import HTTPAdapter
 
-from helper import get_logger
+from .helper import get_logger
 
 log = get_logger("util log")
 
@@ -27,7 +27,9 @@ def post_message_to_slack(
         message,
         debug: bool,
         today=None,
-        notification: bool = False) -> None:
+        slack_url=None,
+        notification: bool = False,
+        delete: bool = False) -> None:
     """
     Function to send Slack notification
     Inputs:
@@ -41,7 +43,7 @@ def post_message_to_slack(
     log.info(f'Sending POST request to channel: #{channel}')
 
     http = requests.Session()
-    retries = Retry(total=5, backoff_factor=10, method_whitelist=['POST'])
+    retries = Retry(total=5, backoff_factor=10, allowed_methods=['POST'])
     http.mount("https://", HTTPAdapter(max_retries=retries))
 
     if debug:
@@ -57,21 +59,20 @@ def post_message_to_slack(
 
             if response['ok']:
                 log.info(f'POST request to channel #{channel} successful')
-                return
+                return True
             else:
                 # slack api request failed
                 error_code = response['error']
                 log.error(error_code)
+                return False
 
         except Exception as e:
             # endpoint request fail from internal server side
             log.error(f'Error sending POST request to channel #{channel}')
             log.error(e)
+            return False
     else:
         data = []
-
-        URL = 'https://cuhbioinformatics.atlassian.net/jira/servicedesk'
-        slack_url = f'{URL}/projects/EBH/queues/custom/17/'
 
         for run, _, status, key in message:
             data.append(f'<{slack_url}{key}|{run}> with status `{status}`')
@@ -80,10 +81,16 @@ def post_message_to_slack(
 
         today = get_next_month(today).strftime("%d %b %Y")
 
-        pretext = (
-            'ansible-run-monitoring: '
-            f'runs that will be deleted on {today}'
-        )
+        if delete:
+            pretext = (
+                'ansible-run-monitoring: '
+                'These runs have been deleted'
+            )
+        else:
+            pretext = (
+                'ansible-run-monitoring: '
+                f'runs that will be deleted on {today}'
+            )
 
         # number above 7,995 seems to get truncation
         if len(text_data) < 7995:
@@ -96,6 +103,15 @@ def post_message_to_slack(
                         "pretext": pretext,
                         "text": text_data}])
                 }).json()
+
+            if response['ok']:
+                log.info(f'POST request to channel #{channel} successful')
+                return True
+            else:
+                # slack api request failed
+                error_code = response['error']
+                log.error(error_code)
+                return False
         else:
             # chunk data based on its length after '\n'.join()
             # if > than 7,995 after join(), we append
@@ -185,7 +201,7 @@ def dx_login(token: str) -> bool:
         return False
 
 
-def check_project_directory(project: str):
+def check_project_directory(project: str, token: str):
 
     """
     Function to check if project is in staging52.
@@ -194,6 +210,9 @@ def check_project_directory(project: str):
     Return:
         boolean
     """
+
+    if not dx_login(token):
+        return False
 
     dx_obj = list(dx.find_data_objects(
         project='project-FpVG0G84X7kzq58g19vF1YJQ',
@@ -216,7 +235,7 @@ def check_project_directory(project: str):
     return False
 
 
-def get_describe_data(project: str):
+def get_describe_data(project: str, token: str):
 
     """
     Function to see if there is 002 project
@@ -226,6 +245,9 @@ def get_describe_data(project: str):
     Return:
         dict of project describe data
     """
+
+    if not dx_login(token):
+        return False
 
     dxes = list(dx.search.find_projects(
         name=f'002_{project}.*',
@@ -376,3 +398,59 @@ def get_next_month(today):
         today += dt.timedelta(days=1)
 
     return today
+
+
+def get_runs(seqs: list, genetic_dir: str, log_dir: str, tmp_seq: dict):
+    genetic_directory = []
+    logs_directory = []
+
+    for sequencer in seqs:
+        log.info(f'Loop through {sequencer} started')
+
+        # Defining gene and log directories
+        gene_dir = f'{genetic_dir}/{sequencer}'
+        logs_dir = f'{log_dir}/{sequencer}'
+
+        # Get all files in gene and log dir
+        genetic_files = [x.strip() for x in os.listdir(gene_dir)]
+        genetic_directory += genetic_files
+        logs_directory += [
+            x.split('.')[1].strip() for x in os.listdir(logs_dir)]
+
+        for run in genetic_files:
+            tmp_seq[run] = sequencer
+
+        genetics_num = len(os.listdir(gene_dir))
+        logs_num = len(os.listdir(logs_dir))
+
+        log.info(f'{genetics_num} folders in {sequencer} detected')
+        log.info(f'{logs_num} logs in {sequencer} detected')
+
+    return genetic_directory, logs_directory
+
+
+def check_age(data: dict, today, week: int):
+    # convert millisec from Epoch datetime to readable human format
+    created_date = dt.datetime.fromtimestamp(
+        data['created'] / 1000.0)
+    created_on = created_date.strftime('%Y-%m-%d')
+
+    duration = today - created_date
+
+    # check if created_date is more than ANSIBLE_WEEK week(s)
+    # duration (sec) / 60 to minute / 60 to hour / 24 to days
+    # If total days is > 7 days * 6 weeks
+    old_enough = duration.total_seconds() / (
+        24*60*60) > 7 * int(week)
+
+    return old_enough, created_on, duration
+
+
+def clear_memory(pickle_path):
+    d = read_or_new_pickle(pickle_path)
+
+    d['runs'] = []
+
+    log.info('Writing into pickle file')
+    with open(pickle_path, 'wb') as f:
+        pickle.dump(d, f)

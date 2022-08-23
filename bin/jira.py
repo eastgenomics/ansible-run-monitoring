@@ -1,8 +1,15 @@
 import requests
+import json
 from requests.auth import HTTPBasicAuth
+
+from urllib3.util import Retry
+from requests.adapters import HTTPAdapter
 
 
 class Assignee(object):
+    """
+    Assignee object for Jira assignee
+    """
     def __init__(self, data):
         self.id = data.get('accountId', None)
         self.active = data.get('active', None)
@@ -11,6 +18,9 @@ class Assignee(object):
 
 
 class Reporter(object):
+    """
+    Reporter object for Jira reporter
+    """
     def __init__(self, data):
         self.id = data.get('accountId', None)
         self.account_type = data.get('accountType', None)
@@ -21,6 +31,9 @@ class Reporter(object):
 
 
 class Creator(object):
+    """
+    Creator object for Jira creator
+    """
     def __init__(self, data):
         self.id = data.get('accountId', None)
         self.account_type = data.get('accountType', None)
@@ -30,12 +43,18 @@ class Creator(object):
 
 
 class Priority(object):
+    """
+    Priority object for priority in Jira ticket
+    """
     def __init__(self, data):
         self.id = data.get('id', None)
         self.name = data.get('name', None)
 
 
 class Project(object):
+    """
+    Project object for project in Jira ticket
+    """
     def __init__(self, data):
         self.id = data.get('id', None)
         self.key = data.get('key', None)
@@ -44,6 +63,9 @@ class Project(object):
 
 
 class Status(object):
+    """
+    Status object for status in Jira ticket
+    """
     def __init__(self, data):
         self.id = data.get('id', None)
         self.name = data.get('name', None)
@@ -51,6 +73,9 @@ class Status(object):
 
 
 class Issue(object):
+    """
+    Issue object for Jira issue
+    """
     def __init__(self, data):
         self.id = data['id']
         self.key = data['key']
@@ -92,24 +117,27 @@ class Issue(object):
 
 class Jira():
     """
-    Jira Class for API request
+    Jira Class Wrapper for Jira API request
     EBH is service desk number 4, All Open 14
     EBHD is service desk number 5, All Open 18
     """
     headers = {"Accept": "application/json"}
-    api_url = 'https://cuhbioinformatics.atlassian.net/rest'
-    service_url = f'{api_url}/servicedeskapi/servicedesk'
 
-    def __init__(self, token, email):
+    http = requests.Session()
+    retries = Retry(total=5, backoff_factor=10, allowed_methods=['POST'])
+    http.mount("https://", HTTPAdapter(max_retries=retries))
+
+    def __init__(self, token, email, api_url):
         self.auth = HTTPBasicAuth(email, token)
+        self.api_url = api_url
+        self.url = f'{api_url}/servicedeskapi/servicedesk'
 
     def get_all_service_desk(self):
         """
         Get all service desk on Jira
         """
-        url = self.service_url
-        response = requests.request(
-            "GET",
+        url = self.url
+        response = self.http.get(
             url,
             headers=self.headers,
             auth=self.auth)
@@ -119,9 +147,8 @@ class Jira():
         """
         Get all queues available in specified service desk on Jira
         """
-        url = f"{self.service_url}/{servicedesk_id}/queue"
-        response = requests.request(
-            "GET",
+        url = f"{self.url}/{servicedesk_id}/queue"
+        response = self.http.get(
             url,
             headers=self.headers,
             auth=self.auth)
@@ -135,9 +162,8 @@ class Jira():
         """
         Get all issues of a queue in specified service desk
         """
-        url = f"{self.service_url}/{servicedesk_id}/queue/{queue_id}/issue"
-        response = requests.request(
-            "GET",
+        url = f"{self.url}/{servicedesk_id}/queue/{queue_id}/issue"
+        response = self.http.get(
             url,
             headers=self.headers,
             auth=self.auth)
@@ -167,8 +193,7 @@ class Jira():
         Get details of specified issue
         """
         url = f"{self.api_url}/api/3/issue/{issue_id}"
-        response = requests.request(
-            "GET",
+        response = self.http.get(
             url,
             headers=self.headers,
             auth=self.auth)
@@ -179,14 +204,14 @@ class Jira():
     def search_issue(
             self,
             sequence_name: str,
-            arrays: list = [],
+            assays: list = [],
             project_name: str = 'EBH',
             status: list = [],
             trimmed: bool = False):
         """
         Search issues based on input text
         Inputs:
-            arrays: limit search to certain arrays
+            assays: limit search to certain arrays
             status: limit search to certain status
         """
 
@@ -197,8 +222,7 @@ class Jira():
             query_cmd += f' and status IN ({status_options})'
 
         query = {'jql': query_cmd}
-        response = requests.request(
-            "GET",
+        response = self.http.get(
             url,
             headers=self.headers,
             params=query,
@@ -209,14 +233,14 @@ class Jira():
         elif len(res['issues']) == 0:
             return res
 
-        if arrays:
-            arrays = [a.lower() for a in arrays]
+        if assays:
+            assays = [a.lower() for a in assays]
             if len(res['issues']) > 1:
                 print('Multiple issue found.')
                 output = []
                 for issue in res['issues']:
-                    array = self.get_array(issue)
-                    if array.lower() in arrays:
+                    array = self.get_assay(issue)
+                    if array.lower() in assays:
                         output.append(Issue(issue))
                 if output:
                     return output
@@ -225,8 +249,8 @@ class Jira():
                     return {'total': 0}
             else:
                 issue = res['issues'][0]
-                array = self.get_array(issue)
-                if array.lower() in arrays:
+                array = self.get_assay(issue)
+                if array.lower() in assays:
                     if trimmed:
                         return {
                             'total': res['total'],
@@ -264,9 +288,7 @@ class Jira():
             else:
                 return res
 
-    def get_array(
-            self,
-            issue: dict):
+    def get_assay(issue: dict):
         """
         Get array options of an issue
         """
@@ -280,7 +302,8 @@ class Jira():
 
         """
         Function to do an issue search and return its
-        array options and status
+        assay options and status
+        Specific for Ansible-Run-Monitoring
         """
 
         jira_data = self.search_issue(
@@ -289,7 +312,7 @@ class Jira():
             trimmed=True)
 
         if jira_data['total'] < 1:
-            array = 'No Jira ticket found'
+            assay = 'No Jira ticket found'
             status = 'No Jira ticket found'
             key = None
         elif jira_data['total'] > 1:
@@ -299,16 +322,121 @@ class Jira():
                 issue for issue in issues if not issue['summary'].startswith(
                     'RE')]
             if len(the_issue) == 1:
-                array = the_issue[0]['array']
+                assay = the_issue[0]['array']
                 status = the_issue[0]['status']['name']
                 key = the_issue[0]['key']
             else:
-                array = 'More than 1 Jira ticket detected'
+                assay = 'More than 1 Jira ticket detected'
                 status = 'More than 1 Jira ticket detected'
                 key = None
         else:
-            array = jira_data['issues']['array']
+            assay = jira_data['issues']['array']
             status = jira_data['issues']['status']['name']
             key = jira_data['issues']['key']
 
-        return array, status, key
+        return assay, status, key
+
+    def create_issue(
+            self,
+            summary: str,
+            issue_type: str,
+            project_id: str,
+            reporter_id: str,
+            priority: str):
+
+        """
+        Create a ticket issue
+        """
+        url = f"{self.api_url}/api/3/issue"
+
+        headers = {
+            "Accept": "application/json",
+            "Content-Type": "application/json"
+        }
+
+        payload = json.dumps({
+            "fields": {
+                "summary": summary,
+                "issuetype": {
+                    "id": issue_type
+                },
+                "project": {
+                    "id": project_id
+                },
+                "reporter": {
+                    "id": reporter_id
+                },
+                "priority": {
+                    "id": priority
+                },
+            }
+        })
+
+        response = self.http.post(
+            url,
+            data=payload,
+            headers=headers,
+            auth=self.auth
+            )
+
+        return response.json()
+
+    def make_transition(self, issue_id, transition_id):
+        """
+        Make a transition for an issue
+        """
+        url = f"{self.api_url}/api/3/issue/{issue_id}/transitions"
+
+        headers = {
+            "Accept": "application/json",
+            "Content-Type": "application/json"
+        }
+
+        payload = json.dumps({
+            "transition": {
+                "id": transition_id
+            }
+        })
+
+        response = self.http.post(
+            url,
+            data=payload,
+            headers=headers,
+            auth=self.auth
+        )
+
+        if response.status_code == 204:
+            return 'Request successful'
+        else:
+            return response.text
+
+    def delete_issue(self, issue_id):
+        """
+        Delete an issue
+        """
+        url = f"{self.api_url}/api/3/issue/{issue_id}"
+
+        response = requests.request(
+            "DELETE",
+            url,
+            auth=self.auth
+        )
+
+        if response.status_code == 204:
+            return 'Request successful'
+        else:
+            return response.text
+
+    def get_available_transitions(self, issue_id):
+        """
+        Get all available transitions for an issue
+        """
+        url = f"{self.api_url}/api/3/issue/{issue_id}/transitions"
+
+        response = self.http.get(
+            url,
+            headers=self.headers,
+            auth=self.auth
+        )
+
+        return response.json()

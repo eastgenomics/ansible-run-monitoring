@@ -1,7 +1,5 @@
 __pycache__
 env
 .env
-log
-genetics
 .vscode
-test.py
+.pytest_cache

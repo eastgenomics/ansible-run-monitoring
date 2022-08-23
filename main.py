@@ -4,9 +4,9 @@ from datetime import datetime
 import pandas as pd
 import shutil
 
-from util import *
-from helper import get_logger
-from jira import Jira
+from bin.util import *
+from bin.helper import get_logger
+from bin.jira import Jira
 
 log = get_logger("main log")
 
@@ -34,6 +34,8 @@ def main():
     JIRA_EMAIL = os.environ['JIRA_EMAIL']
     JIRA_ARRAY = [
         array for array in os.environ['ANSIBLE_JIRA_ARRAY'].split(',')]
+    JIRA_URL = os.environ['JIRA_URL']
+    JIRA_SLACK_URL = os.environ['SLACK_NOTIFY_JIRA_URL']
 
     if DEBUG:
         log.info('Running in DEBUG mode')
@@ -52,27 +54,41 @@ def main():
 
         post_message_to_slack('egg-alerts', SLACK_TOKEN, message, DEBUG)
         log.info('END SCRIPT')
-        sys.exit()
+        exit()
 
     today = datetime.now()
 
     ansible_pickle = read_or_new_pickle(ANSIBLE_PICKLE)
     runs = ansible_pickle['runs']
 
-    jira = Jira(JIRA_TOKEN, JIRA_EMAIL)
+    jira = Jira(JIRA_TOKEN, JIRA_EMAIL, JIRA_URL)
 
     if today.day == 1:
-        for run, seq, _, _ in runs:
+        deleted_runs = []
+        for run, seq, status, key in runs:
             try:
-                if not DEBUG:
-                    log.info(f'DELETING {run}')
-                    shutil.rmtree(f'{GENETIC_DIR}/{seq}/{run}')
-                else:
-                    log.info('DEBUG: DELETE RUNS...')
+                log.info(f'DELETING {run}')
+                shutil.rmtree(f'{GENETIC_DIR}/{seq}/{run}')
+
+                deleted_runs.append((run, seq, status, key))
             except OSError as err:
                 log.error(err)
+                clear_memory(ANSIBLE_PICKLE)
+
                 log.info('END SCRIPT')
                 sys.exit()
+
+        post_message_to_slack(
+            'egg-alerts',
+            SLACK_TOKEN,
+            deleted_runs,
+            DEBUG,
+            today=today,
+            slack_url=JIRA_SLACK_URL,
+            notification=True,
+            delete=True
+        )
+
     else:
         log.info(today)
         if runs:
@@ -81,10 +97,11 @@ def main():
                 SLACK_TOKEN,
                 runs,
                 DEBUG,
-                today,
-                True)
+                today=today,
+                slack_url=JIRA_SLACK_URL,
+                notification=True)
         else:
-            log.info('NO RUNS DETECTED')
+            log.info('NO RUNS IN MEMORY DETECTED')
 
         log.info('END SCRIPT')
         sys.exit()
@@ -97,30 +114,8 @@ def main():
     final_duplicates = []
     table_data = []
 
-    genetic_directory = []
-    logs_directory = []
-
-    for sequencer in seqs:
-        log.info(f'Loop through {sequencer} started')
-
-        # Defining gene and log directories
-        gene_dir = f'{GENETIC_DIR}/{sequencer}'
-        logs_dir = f'{LOGS_DIR}/{sequencer}'
-
-        # Get all files in gene and log dir
-        genetic_files = [x.strip() for x in os.listdir(gene_dir)]
-        genetic_directory += genetic_files
-        logs_directory += [
-            x.split('.')[1].strip() for x in os.listdir(logs_dir)]
-
-        for run in genetic_files:
-            temp_sequencer[run] = sequencer
-
-        genetics_num = len(os.listdir(gene_dir))
-        logs_num = len(os.listdir(logs_dir))
-
-        log.info(f'{genetics_num} folders in {sequencer} detected')
-        log.info(f'{logs_num} logs in {sequencer} detected')
+    genetic_directory, logs_directory = get_runs(
+        seqs, GENETIC_DIR, LOGS_DIR, temp_sequencer)
 
     # Get the duplicates between two directories /genetics & /var/log/
     temp_duplicates = set(genetic_directory) & set(logs_directory)
@@ -131,30 +126,19 @@ def main():
     for project in list(temp_duplicates):
 
         # check uploaded to staging52 project file (bool)
-        uploaded_bool = check_project_directory(project)
+        uploaded_bool = check_project_directory(project, DNANEXUS_TOKEN)
 
         # check 002_ folder created
-        proj_data = get_describe_data(project)
+        proj_data = get_describe_data(project, DNANEXUS_TOKEN)
 
         array, status, key = jira.get_issue_detail(project)
 
         if proj_data:
             # 002_ folder found
 
-            proj_des = proj_data['describe']
-
-            # convert millisec from Epoch datetime to readable human format
-            created_date = datetime.fromtimestamp(
-                proj_des['created'] / 1000.0)
-            created_on = created_date.strftime('%Y-%m-%d')
-
-            duration = today - created_date
-
-            # check if created_date is more than ANSIBLE_WEEK week(s)
-            # duration (sec) / 60 to minute / 60 to hour / 24 to days
-            # If total days is > 7 days * 6 weeks
-            old_enough = duration.total_seconds() / (
-                24*60*60) > 7 * int(ANSIBLE_WEEK)
+            data = proj_data['describe']
+            old_enough, created_on, duration = check_age(
+                data, today, ANSIBLE_WEEK)
 
             if old_enough:
                 # folder is old enough = can be deleted
@@ -174,8 +158,8 @@ def main():
                         (
                             project,
                             created_on,
-                            '{} GB'.format(round(proj_des['dataUsage'])),
-                            proj_des['createdBy']['user'],
+                            '{} GB'.format(round(data['dataUsage'])),
+                            data['createdBy']['user'],
                             round(duration.days / 7, 2),
                             True,
                             uploaded_bool,
@@ -183,6 +167,8 @@ def main():
                             f'{array}:{status}:True'
                         )
                     )
+
+                    final_duplicates.append(project)
 
                     continue
                 else:
@@ -197,8 +183,8 @@ def main():
                         (
                             project,
                             created_on,
-                            '{} GB'.format(round(proj_des['dataUsage'])),
-                            proj_des['createdBy']['user'],
+                            '{} GB'.format(round(data['dataUsage'])),
+                            data['createdBy']['user'],
                             round(duration.days / 7, 2),
                             True,
                             uploaded_bool,
@@ -223,8 +209,8 @@ def main():
                     (
                         project,
                         created_on,
-                        '{} GB'.format(round(proj_des['dataUsage'])),
-                        proj_des['createdBy']['user'],
+                        '{} GB'.format(round(data['dataUsage'])),
+                        data['createdBy']['user'],
                         round(duration.days / 7, 2),
                         False,
                         uploaded_bool,
@@ -258,6 +244,9 @@ def main():
 
     if not final_duplicates:
         log.info(f'No runs older than {ANSIBLE_WEEK} weeks')
+
+        clear_memory(ANSIBLE_PICKLE)
+
         log.info('END SCRIPT')
         sys.exit()
 
@@ -271,10 +260,9 @@ def main():
         duplicates_dir.append(f'/genetics/{fileseq}/{file}')
 
     # saving the directories into txt file (newline)
-    if not DEBUG:
-        log.info('Writing to text file')
-        with open('duplicates.txt', 'w') as f:
-            f.write('\n'.join(duplicates_dir))
+    log.info('Writing to text file')
+    with open('duplicates.txt', 'w') as f:
+        f.write('\n'.join(duplicates_dir))
 
     # dataframe creation for all runs describe=True data
     df = pd.DataFrame(
