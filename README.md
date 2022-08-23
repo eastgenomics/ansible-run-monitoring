@@ -9,7 +9,7 @@ Python script to report deletable runs in `/genetics` on ansible server by sendi
 - Each runs need to fulfill two main criterias: 
   - 002 project of run created on DNANexus 
   - Run folder exist in `staging52`
-- To qualify for automated deletion, runs need to have Jira status of `ALL SAMPLES RELEASED`
+- To qualify for automated deletion, runs need to have Jira status of `ALL SAMPLES RELEASED` & assay options in `ANSIBLE_JIRA_ARRAY`
 - Compile all runs which meet both criteria
 - Send an email to EBH helpdesk
 
@@ -40,6 +40,9 @@ docker run --env-file <path to config> -v /genetics:/genetics -v /var/log/dx-str
 14. `JIRA_TOKEN`: Jira API token
 15. `JIRA_EMAIL`: Jira API email
 16. `ANSIBLE_DEBUG`: (optional)
+17. `JIRA_URL`: Jira API Rest url
+18. `SLACK_NOTIFY_JIRA_URL`: Jira helpdesk queue url (for direct link to Jira sample ticket)
+19. `SLACK_TOKEN`: slack auth token
 
 ## Logging
 
@@ -47,11 +50,29 @@ Logging function is written in ` helper.py ` with format ` %(asctime)s:%(name)s:
 
 E.g. ``` 2021-11-16 14:39:45,173```:```ansible main log```:```main```:```INFO```:```Fetching Dxpy API 211014_A01295_0031_AHL3MFDRXY started ```
 
-Log file (``` ansible-run-monitoring.log ```) will be stored in ``` /log/monitoring ``` in ansible server
+Log file (``` ansible-run-monitoring.log ```) will be stored in ``` /log/monitoring/ansible-run-monitoring.log ``` in ansible server
 
 ## Automation
 
 Cron has been scheduled to run periodically to check for runs older than X number of months
+
+## Mock Testing
+
+`Dockerfile.test` has been provided.
+
+```
+# Build the image
+docker build -t ansible:test -f Dockerfile.test .
+
+# Run a mock test
+# Require mounting of /log/monitoring for storing memory, /genetics for mock create runs in /genetics directory
+docker run --env-file /home/jason/github/ansible-run-monitoring/.env -v /home/jason/github/ansible-run-monitoring/test/log/monitoring:/log/monitoring -v /home/jason/github/ansible-run-monitoring/test/genetics:/genetics ansible:1.0.2 /bin/bash -c "python -u mock.py && python -u main.py"
+
+# Unit test functions in util.py
+docker run --env-file /home/jason/github/ansible-run-monitoring/.env ansible:1.0.2
+```
+#### Mock Testing Command
+`mock.py` will pick a random run from `runs.txt` to create a nested directory in `/genetics`. A log file `run.{name}.lane.all.log` will be generated in `/log/dx-streaming-upload/A01295a`. Run `main.py` on the 1st of any month (can be done by editing your workspace date/time) should trigger the whole workflow, else the script will stop as there's no runs in its memory (expected). The expected workflow on 1st should be the script will recognize the run in `/genetics` and `/log/dx-streaming-upload/A01295a`, thus showing overlap file to be 1. The run will then be stored in `ansible_dict.pickle`
 
 ## Error
 
