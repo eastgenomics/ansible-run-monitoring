@@ -1,0 +1,17 @@
+# syntax=docker/dockerfile:1
+
+FROM python:3.8-slim
+
+WORKDIR /home/
+
+RUN mkdir -p /log/dx-streaming-upload/A01295a
+RUN mkdir -p /log/dx-streaming-upload/A01295b
+RUN mkdir -p /log/dx-streaming-upload/A01303a
+RUN mkdir -p /log/dx-streaming-upload/A01303b
+
+COPY requirements.txt requirements.txt
+RUN pip install -r requirements.txt
+
+COPY . /home/
+
+CMD ["python", "-m", "unittest", "test/test_util.py"]

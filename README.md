@@ -1,41 +1,30 @@
 # Ansible Run Monitoring
 
-Python script to report old runs in '/genetics' on ansible server by sending email to helpdesk.
+Python script to report deletable runs in `/genetics` on ansible server by sending email to helpdesk & automate deletion of stale run
 
 ## Script Workflow
 
 - Get all runs in `genetics` directory and `log` directory (`/var/log/dx-streaming-upload`) in ansible server
-- Compare runs in both directory for overlap (runs which have log in log directory)
-- Each runs need to fulfill two main criterias to be considered: (a) 002 project is created on DNANexus (b) run folder exist in Staging52
-- Compile all run which check both criteria and send an email to helpdesk with attachment (a text file of their respective directory path e.g. ` /genetics/A01295/ABC_RUNS`
-- DataFrame Table will also be in the email (example below)
-
-Project  | Created | Data Usage | Created By | Age (Week) | Uploaded to Staging52 | Old Enough | 002 Directory Found
-------------- | ------------- | ------------- | ------------- | ------------- | ------------- | ------------- | ------------- | 
-211115_A01295_0035_AHMYGGDRXY  | 2021-10-18 | 533.0 GB | user-aishadahir | 30 | True | True | True
-
+- Compare runs in both directory for overlap (runs which have log in log directory - meaning it has been uploaded to DNANexus)
+- To qualify for automated deletion, each runs need to fulfill four main criterias: 
+  - 002 project of run created on DNANexus 
+  - Run folder exist in `staging52`
+  - 002 project has been created for more than `ANSIBLE_WEEK`
+  - have Jira ticket with status `ALL SAMPLES RELEASED`
+  - have assay option in `ANSIBLE_JIRA_ASSAY`
+- Compile all qualified runs & save it in memory (pickle)
+- Send email to helpdesk on other unqualified runs e.g. runs without `ALL SAMPLES RELEASED` Jira status or 002 project hasn't been created for long enough
+- Send Slack reminder on qualified runs
+- Delete qualified runs in the next run (e.g. 1st of next month)
 
 ## Rebuilding Docker Image
 
-Contains the Dockerfile and requirement.txt for re-building the docker image.
-
-Run ```docker build -t <image name> .``` 
-
-## Packages Installed
-1. dxpy
-2. tabulate
-3. pandas
-4. dotenv (only for development purpose)
-
-Docker base image: python3.8-slim-buster \
-**Tested on Ubuntu 20.04.3 LTS**
-
+Run `docker build -t <image name> .`
 
 ## Running the Container
-
-Run Command: ` docker run --env-file <env file> -v /genetics:/var/genetics -v /var/log:/var/log <docker image> `
-
-Running the container requires mounting of two directories from local filesystem ` /genetics ` and ` /var/log ` to the docker container. This allows the docker container to read files in /genetic in ansible server and write (log) into the local filesystem.
+```
+docker run --env-file <path to config> -v /genetics:/genetics -v /var/log/dx-streaming-upload:/log/dx-streaming-upload -v /var/log/monitoring:/log/monitoring <image name:tag>
+```
 
 ## Config Env Variables
 
@@ -48,8 +37,16 @@ Running the container requires mounting of two directories from local filesystem
 7. `ANSIBLE_SEQ`: sequencing machine, **use comma to include more machines** (e.g. a01295, a01303, a1405)
 8. `HTTP_PROXY`: http proxy
 9. `HTTPS_PROXY`: https proxy
-10. ` ANSIBLE_WEEK `: number of week old (e.g. 6)
-11. ` DNANEXUS_TOKEN `: authentication token for dxpy login
+10. `ANSIBLE_WEEK `: number of week old (e.g. 6)
+11. `DNANEXUS_TOKEN `: authentication token for dxpy login
+12. `ANSIBLE_PICKLE_PATH`: directory to save memory e.g /log/monitoring/ansible.pickle
+13. `ANSIBLE_JIRA_ASSAY`: e.g. TWE,MYE **use comma to include multiple assays**
+14. `JIRA_TOKEN`: Jira API token
+15. `JIRA_EMAIL`: Jira API email
+16. `ANSIBLE_DEBUG`: (optional)
+17. `JIRA_URL`: Jira API Rest url
+18. `SLACK_NOTIFY_JIRA_URL`: Jira helpdesk queue url (for direct link to Jira sample ticket)
+19. `SLACK_TOKEN`: slack auth token
 
 ## Logging
 
@@ -57,11 +54,29 @@ Logging function is written in ` helper.py ` with format ` %(asctime)s:%(name)s:
 
 E.g. ``` 2021-11-16 14:39:45,173```:```ansible main log```:```main```:```INFO```:```Fetching Dxpy API 211014_A01295_0031_AHL3MFDRXY started ```
 
-Log file (``` ansible-run-monitoring.log ```) will be stored in ``` /var/log/monitoring ``` in ansible server
+Log file (``` ansible-run-monitoring.log ```) will be stored in ``` /log/monitoring/ansible-run-monitoring.log ``` in ansible server
 
 ## Automation
 
-Cron has been set to run monthly to check for runs older than X number of months
+Cron has been scheduled to run periodically to check for runs older than X number of months
+
+## Mock Testing
+
+`Dockerfile.test` has been provided.
+
+```
+# Build the image
+docker build -t ansible:test -f Dockerfile.test .
+
+# Run a mock test
+# Require mounting of /log/monitoring for storing memory, /genetics for mock create runs in /genetics directory
+docker run --env-file <path to .env file> -v <path to /test/log/monitoring>:/log/monitoring -v <path to /test/genetics>:/genetics ansible:test /bin/bash -c "python -u mock.py && python -u main.py"
+
+# Unit test functions in util.py
+docker run --env-file <path to .env file> ansible:test
+```
+#### Mock Testing Command
+`mock.py` will pick a random run from `runs.txt` to create a nested directory in `/genetics`. A log file `run.{name}.lane.all.log` will be generated in `/log/dx-streaming-upload/A01295a`. Running the mock command on the 1st of any month (edit your workspace date/time) should trigger the whole workflow, else the script will stop as there's no runs in its memory (expected). The expected workflow on the 1st should be that the script will recognize the run in `/genetics` and `/log/dx-streaming-upload/A01295a`, thus showing overlap file to be 1. The run will then be stored in `ansible_dict.pickle`. If we change our workspace date/time to any date other than the first and run the mock command, it will send a Slack notification to alert about the deletion. Then we change our workspace date/time back to the 1st and run the mock command, it will proceed to delete the run in `/genetics` and continue searching for overlap between `/genetics` and `/log/dx-streaming-upload/A01295a`
 
 ## Error
 

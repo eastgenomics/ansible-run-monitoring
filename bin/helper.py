@@ -4,15 +4,19 @@ Script can be imported and will generate log file in
 directory defined below
 """
 
-import sys
 import logging
 from logging.handlers import TimedRotatingFileHandler
+from pathlib import Path
+import sys
 
 
 FORMATTER = logging.Formatter(
     "%(asctime)s:%(name)s:%(module)s:%(levelname)s:%(message)s"
     )
 LOG_FILE = "/log/monitoring/ansible-run-monitoring.log"
+
+Path('/log/monitoring').mkdir(parents=True, exist_ok=True)
+Path(LOG_FILE).touch(exist_ok=True)
 
 
 def get_console_handler():
