@@ -66,10 +66,10 @@ docker build -t ansible:test -f Dockerfile.test .
 
 # Run a mock test
 # Require mounting of /log/monitoring for storing memory, /genetics for mock create runs in /genetics directory
-docker run --env-file /home/jason/github/ansible-run-monitoring/.env -v /home/jason/github/ansible-run-monitoring/test/log/monitoring:/log/monitoring -v /home/jason/github/ansible-run-monitoring/test/genetics:/genetics ansible:test /bin/bash -c "python -u mock.py && python -u main.py"
+docker run --env-file <path to .env file> -v <path to /test/log/monitoring>:/log/monitoring -v <path to /test/genetics>:/genetics ansible:test /bin/bash -c "python -u mock.py && python -u main.py"
 
 # Unit test functions in util.py
-docker run --env-file /home/jason/github/ansible-run-monitoring/.env ansible:test
+docker run --env-file <path to .env file> ansible:test
 ```
 #### Mock Testing Command
 `mock.py` will pick a random run from `runs.txt` to create a nested directory in `/genetics`. A log file `run.{name}.lane.all.log` will be generated in `/log/dx-streaming-upload/A01295a`. Running the mock command on the 1st of any month (edit your workspace date/time) should trigger the whole workflow, else the script will stop as there's no runs in its memory (expected). The expected workflow on the 1st should be that the script will recognize the run in `/genetics` and `/log/dx-streaming-upload/A01295a`, thus showing overlap file to be 1. The run will then be stored in `ansible_dict.pickle`. If we change our workspace date/time to any date other than the first and run the mock command, it will send a Slack notification to alert about the deletion. Then we change our workspace date/time back to the 1st and run the mock command, it will proceed to delete the run in `/genetics` and continue searching for overlap between `/genetics` and `/log/dx-streaming-upload/A01295a`
