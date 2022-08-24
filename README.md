@@ -1,6 +1,6 @@
 # Ansible Run Monitoring
 
-Python script to report deletable runs in `/genetics` on ansible server by sending email to helpdesk.
+Python script to report deletable runs in `/genetics` on ansible server by sending email to helpdesk & automate deletion of stale run
 
 ## Script Workflow
 
@@ -10,8 +10,10 @@ Python script to report deletable runs in `/genetics` on ansible server by sendi
   - 002 project of run created on DNANexus 
   - Run folder exist in `staging52`
 - To qualify for automated deletion, runs need to have Jira status of `ALL SAMPLES RELEASED` & assay options in `ANSIBLE_JIRA_ASSAY`
-- Compile all runs which meet both criteria
-- Send an email to EBH helpdesk
+- Compile all runs which meet both criteria and save it in memory (pickle)
+- Send Slack reminder on deletable runs
+- Delete previously listed runs and repeat process
+- Send email to helpdesk on stale runs
 
 ## Rebuilding Docker Image
 
