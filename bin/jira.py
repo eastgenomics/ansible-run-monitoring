@@ -113,11 +113,11 @@ class Issue(object):
             self.reporter = None
         if 'customfield_10070' in fields:
             if fields['customfield_10070'] is not None:
-                self.array = fields['customfield_10070'][0].get('value', None)
+                self.assay = fields['customfield_10070'][0].get('value', None)
             else:
-                self.array = None
+                self.assay = None
         else:
-            self.array = None
+            self.assay = None
 
 
 class Jira():
@@ -216,7 +216,7 @@ class Jira():
         Search issues based on input text
         If trimmed: return a pre-processed issue json()
         Inputs:
-            assays: limit search to certain arrays
+            assays: limit search to certain assays
             status: limit search to certain status
         """
 
@@ -244,30 +244,32 @@ class Jira():
                 print('Multiple issue found.')
                 output = []
                 for issue in res['issues']:
-                    array = self.get_assay(issue)
-                    if array.lower() in assays:
-                        output.append(Issue(issue))
+                    assay = self.get_assay(issue)
+                    if assay is not None:
+                        if assay.lower() in assays:
+                            output.append(Issue(issue))
                 if output:
                     return output
                 else:
-                    print('no ticket fits array options')
+                    print('no ticket fits assay options')
                     return {'total': 0}
             else:
                 issue = res['issues'][0]
-                array = self.get_assay(issue)
-                if array.lower() in assays:
-                    if trimmed:
-                        return {
-                            'total': res['total'],
-                            'maxResults': res['maxResults'],
-                            'startAt': res['startAt'],
-                            'issues': Issue(issue).__dict__
-                        }
+                assay = self.get_assay(issue)
+                if assay is not None:
+                    if assay.lower() in assays:
+                        if trimmed:
+                            return {
+                                'total': res['total'],
+                                'maxResults': res['maxResults'],
+                                'startAt': res['startAt'],
+                                'issues': Issue(issue).__dict__
+                            }
+                        else:
+                            return res
                     else:
-                        return res
-                else:
-                    print('no ticket fits array options')
-                    return {'total': 0}
+                        print('no ticket fits assay options')
+                        return {'total': 0}
         else:
             if trimmed:
                 if len(res['issues']) > 1:
@@ -295,7 +297,7 @@ class Jira():
 
     def get_assay(issue: dict):
         """
-        Get array options of an issue
+        Get assay options of an issue
         """
         if 'customfield_10070' in issue['fields']:
             return issue['fields']['customfield_10070'][0].get('value', None)
@@ -327,7 +329,7 @@ class Jira():
                 issue for issue in issues if not issue['summary'].startswith(
                     'RE')]
             if len(the_issue) == 1:
-                assay = the_issue[0]['array']
+                assay = the_issue[0]['assay']
                 status = the_issue[0]['status']['name']
                 key = the_issue[0]['key']
             else:
@@ -335,7 +337,7 @@ class Jira():
                 status = 'More than 1 Jira ticket detected'
                 key = None
         else:
-            assay = jira_data['issues']['array']
+            assay = jira_data['issues']['assay']
             status = jira_data['issues']['status']['name']
             key = jira_data['issues']['key']
 

@@ -9,7 +9,7 @@ Python script to report deletable runs in `/genetics` on ansible server by sendi
 - Each runs need to fulfill two main criterias: 
   - 002 project of run created on DNANexus 
   - Run folder exist in `staging52`
-- To qualify for automated deletion, runs need to have Jira status of `ALL SAMPLES RELEASED` & assay options in `ANSIBLE_JIRA_ARRAY`
+- To qualify for automated deletion, runs need to have Jira status of `ALL SAMPLES RELEASED` & assay options in `ANSIBLE_JIRA_ASSAY`
 - Compile all runs which meet both criteria
 - Send an email to EBH helpdesk
 
@@ -36,7 +36,7 @@ docker run --env-file <path to config> -v /genetics:/genetics -v /var/log/dx-str
 10. `ANSIBLE_WEEK `: number of week old (e.g. 6)
 11. `DNANEXUS_TOKEN `: authentication token for dxpy login
 12. `ANSIBLE_PICKLE_PATH`: directory to save memory e.g /log/monitoring/ansible.pickle
-13. `ANSIBLE_JIRA_ARRAY`: e.g. TWE,MYE **use comma to include multiple arrays**
+13. `ANSIBLE_JIRA_ASSAY`: e.g. TWE,MYE **use comma to include multiple assays**
 14. `JIRA_TOKEN`: Jira API token
 15. `JIRA_EMAIL`: Jira API email
 16. `ANSIBLE_DEBUG`: (optional)

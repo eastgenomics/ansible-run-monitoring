@@ -32,8 +32,8 @@ def main():
 
     JIRA_TOKEN = os.environ['JIRA_TOKEN']
     JIRA_EMAIL = os.environ['JIRA_EMAIL']
-    JIRA_ARRAY = [
-        array for array in os.environ['ANSIBLE_JIRA_ARRAY'].split(',')]
+    JIRA_ASSAY = [
+        ASSAY for ASSAY in os.environ['ANSIBLE_JIRA_ASSAY'].split(',')]
     JIRA_URL = os.environ['JIRA_URL']
     JIRA_SLACK_URL = os.environ['SLACK_NOTIFY_JIRA_URL']
 
@@ -144,7 +144,7 @@ def main():
 
                 if (
                         status.upper() == 'ALL SAMPLES RELEASED' and
-                        assay in JIRA_ARRAY):
+                        assay in JIRA_ASSAY):
                     temp_pickle.append(
                         (project, tmp_seq[project], status, key))
 
@@ -275,7 +275,7 @@ def main():
             'Old Enough',
             'Present in Staging52',
             '002 Project Found',
-            'Array:Jira Status:Delete'
+            'Assay:Jira Status:Delete'
             ]
         )
 
