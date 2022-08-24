@@ -14,4 +14,4 @@ RUN pip install -r requirements.txt
 
 COPY . /home/
 
-CMD [ "py.test"]
+CMD ["python", "-m", "unittest", "test/test_util.py"]

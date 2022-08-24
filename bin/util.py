@@ -1,20 +1,20 @@
+import collections
+import datetime as dt
+import dxpy as dx
+import json
 import os
+import pickle
 import smtplib
 import requests
-import dxpy as dx
-import pickle
-import collections
-import json
-import datetime as dt
 
-from os.path import basename
 from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.utils import COMMASPACE, formatdate
+from os.path import basename
+from requests.adapters import HTTPAdapter
 from tabulate import tabulate
 from urllib3.util import Retry
-from requests.adapters import HTTPAdapter
 
 from .helper import get_logger
 
@@ -43,7 +43,7 @@ def post_message_to_slack(
     log.info(f'Sending POST request to channel: #{channel}')
 
     http = requests.Session()
-    retries = Retry(total=5, backoff_factor=10, allowed_methods=['POST'])
+    retries = Retry(total=5, backoff_factor=10, method_whitelist=['POST'])
     http.mount("https://", HTTPAdapter(max_retries=retries))
 
     if debug:
@@ -56,6 +56,8 @@ def post_message_to_slack(
                 'channel': f'#{channel}',
                 'text': message
             }).json()
+
+            http.close()
 
             if response['ok']:
                 log.info(f'POST request to channel #{channel} successful')
@@ -103,6 +105,8 @@ def post_message_to_slack(
                         "pretext": pretext,
                         "text": text_data}])
                 }).json()
+
+            http.close()
 
             if response['ok']:
                 log.info(f'POST request to channel #{channel} successful')
@@ -154,6 +158,10 @@ def post_message_to_slack(
                     error_code = response['error']
                     log.error(error_code)
 
+            http.close()
+
+            return True
+
 
 def directory_check(directories: list) -> bool:
 
@@ -201,7 +209,7 @@ def dx_login(token: str) -> bool:
         return False
 
 
-def check_project_directory(project: str, token: str):
+def check_project_directory(project: str, token: str) -> bool:
 
     """
     Function to check if project is in staging52.
@@ -235,7 +243,7 @@ def check_project_directory(project: str, token: str):
     return False
 
 
-def get_describe_data(project: str, token: str):
+def get_describe_data(project: str, token: str) -> list:
 
     """
     Function to see if there is 002 project
@@ -400,7 +408,14 @@ def get_next_month(today):
     return today
 
 
-def get_runs(seqs: list, genetic_dir: str, log_dir: str, tmp_seq: dict):
+def get_runs(seqs: list, genetic_dir: str, log_dir: str, tmp_seq: dict = {}):
+    """
+    Function to check overlap between genetic_dir and log_dir
+    Input:
+        seqs: list of sequencers
+        genetic_dir: path to /genetics
+        log_dir: path to all the log files
+    """
     genetic_directory = []
     logs_directory = []
 
@@ -426,10 +441,18 @@ def get_runs(seqs: list, genetic_dir: str, log_dir: str, tmp_seq: dict):
         log.info(f'{genetics_num} folders in {sequencer} detected')
         log.info(f'{logs_num} logs in {sequencer} detected')
 
-    return genetic_directory, logs_directory
+    return genetic_directory, logs_directory, tmp_seq
 
 
 def check_age(data: dict, today, week: int):
+    """
+    Function to check if project describe() date
+    is old enough (duration to today's date is > week)
+    Inputs:
+        data: project describe() data
+        today: DateTime (today's date)
+        week: ANSIBLE_WEEK
+    """
     # convert millisec from Epoch datetime to readable human format
     created_date = dt.datetime.fromtimestamp(
         data['created'] / 1000.0)
@@ -446,7 +469,10 @@ def check_age(data: dict, today, week: int):
     return old_enough, created_on, duration
 
 
-def clear_memory(pickle_path):
+def clear_memory(pickle_path: str) -> None:
+    """
+    Function to erase everything in pickle
+    """
     d = read_or_new_pickle(pickle_path)
 
     d['runs'] = []

@@ -110,12 +110,11 @@ def main():
     seqs = [x for x in os.environ['ANSIBLE_SEQ'].split(',')]
 
     temp_pickle = []
-    temp_sequencer = {}
     final_duplicates = []
     table_data = []
 
-    genetic_directory, logs_directory = get_runs(
-        seqs, GENETIC_DIR, LOGS_DIR, temp_sequencer)
+    genetic_directory, logs_directory, tmp_seq = get_runs(
+        seqs, GENETIC_DIR, LOGS_DIR)
 
     # Get the duplicates between two directories /genetics & /var/log/
     temp_duplicates = set(genetic_directory) & set(logs_directory)
@@ -131,7 +130,7 @@ def main():
         # check 002_ folder created
         proj_data = get_describe_data(project, DNANEXUS_TOKEN)
 
-        array, status, key = jira.get_issue_detail(project)
+        assay, status, key = jira.get_issue_detail(project)
 
         if proj_data:
             # 002_ folder found
@@ -145,9 +144,9 @@ def main():
 
                 if (
                         status.upper() == 'ALL SAMPLES RELEASED' and
-                        array in JIRA_ARRAY):
+                        assay in JIRA_ARRAY):
                     temp_pickle.append(
-                        (project, temp_sequencer[project], status, key))
+                        (project, tmp_seq[project], status, key))
 
                     log.info('{} {} ::: {} weeks PASS'.format(
                         project,
@@ -164,7 +163,7 @@ def main():
                             True,
                             uploaded_bool,
                             True,
-                            f'{array}:{status}:True'
+                            f'{assay}:{status}:True'
                         )
                     )
 
@@ -176,7 +175,7 @@ def main():
                         project,
                         created_on,
                         round(duration.days / 7, 2),
-                        array,
+                        assay,
                         status))
 
                     table_data.append(
@@ -189,7 +188,7 @@ def main():
                             True,
                             uploaded_bool,
                             True,
-                            f'{array}:{status}:False'
+                            f'{assay}:{status}:False'
                         )
                     )
 
@@ -215,7 +214,7 @@ def main():
                         False,
                         uploaded_bool,
                         True,
-                        f'{array}:{status}:False'
+                        f'{assay}:{status}:False'
                     )
                 )
 
@@ -234,7 +233,7 @@ def main():
                     False,
                     uploaded_bool,
                     False,
-                    f'{array}:{status}:False'
+                    f'{assay}:{status}:False'
                 )
             )
 

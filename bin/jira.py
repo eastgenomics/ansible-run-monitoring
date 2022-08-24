@@ -1,9 +1,14 @@
-import requests
-import json
-from requests.auth import HTTPBasicAuth
+"""
+Jira Class as wrapper for Jira API request
+EBH is service desk number 4, All Open 14
+EBHD is service desk number 5, All Open 18
+"""
 
-from urllib3.util import Retry
+import json
+import requests
 from requests.adapters import HTTPAdapter
+from requests.auth import HTTPBasicAuth
+from urllib3.util import Retry
 
 
 class Assignee(object):
@@ -118,13 +123,11 @@ class Issue(object):
 class Jira():
     """
     Jira Class Wrapper for Jira API request
-    EBH is service desk number 4, All Open 14
-    EBHD is service desk number 5, All Open 18
     """
     headers = {"Accept": "application/json"}
 
     http = requests.Session()
-    retries = Retry(total=5, backoff_factor=10, allowed_methods=['POST'])
+    retries = Retry(total=5, backoff_factor=10, method_whitelist=['POST'])
     http.mount("https://", HTTPAdapter(max_retries=retries))
 
     def __init__(self, token, email, api_url):
@@ -191,6 +194,7 @@ class Jira():
             trimmed: bool = False):
         """
         Get details of specified issue
+        If trimmed: return a pre-processed issue json()
         """
         url = f"{self.api_url}/api/3/issue/{issue_id}"
         response = self.http.get(
@@ -210,6 +214,7 @@ class Jira():
             trimmed: bool = False):
         """
         Search issues based on input text
+        If trimmed: return a pre-processed issue json()
         Inputs:
             assays: limit search to certain arrays
             status: limit search to certain status

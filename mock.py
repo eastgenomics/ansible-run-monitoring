@@ -19,8 +19,10 @@ with open('/home/test/runs.txt') as f:
 run = random.choice(lines)
 
 
-def get_random_string(length):
-    # choose from all lowercase letter
+def get_random_string(length: int):
+    """
+    Function to create random string of variable length
+    """
     letters = string.ascii_lowercase
     result_str = ''.join(random.choice(letters) for i in range(length))
     return result_str
@@ -48,6 +50,9 @@ with open(f'/genetics/{seq}/{run}/nested/run.{run}.lane.all.log', 'w') as f:
 
 
 def list_files(startpath):
+    """
+    Function to pretty print directories
+    """
     for root, _, files in os.walk(startpath):
         level = root.replace(startpath, '').count(os.sep)
         indent = ' ' * 4 * (level)
