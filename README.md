@@ -5,15 +5,17 @@ Python script to report deletable runs in `/genetics` on ansible server by sendi
 ## Script Workflow
 
 - Get all runs in `genetics` directory and `log` directory (`/var/log/dx-streaming-upload`) in ansible server
-- Compare runs in both directory for overlap (runs which have log in log directory)
-- Each runs need to fulfill two main criterias: 
+- Compare runs in both directory for overlap (runs which have log in log directory - meaning it has been uploaded to DNANexus)
+- To qualify for automated deletion, each runs need to fulfill four main criterias: 
   - 002 project of run created on DNANexus 
   - Run folder exist in `staging52`
-- To qualify for automated deletion, runs need to have Jira status of `ALL SAMPLES RELEASED` & assay options in `ANSIBLE_JIRA_ASSAY`
-- Compile all runs which meet both criteria and save it in memory (pickle)
-- Send Slack reminder on deletable runs
-- Delete previously listed runs and repeat process
-- Send email to helpdesk on stale runs
+  - 002 project has been created for more than `ANSIBLE_WEEK`
+  - have Jira ticket with status `ALL SAMPLES RELEASED`
+  - have assay option in `ANSIBLE_JIRA_ASSAY`
+- Compile all qualified runs & save it in memory (pickle)
+- Send email to helpdesk on other unqualified runs e.g. runs without `ALL SAMPLES RELEASED` Jira status or 002 project hasn't been created for long enough
+- Send Slack reminder on qualified runs
+- Delete qualified runs in the next run (e.g. 1st of next month)
 
 ## Rebuilding Docker Image
 
