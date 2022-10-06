@@ -31,16 +31,18 @@ docker run --env-file <path to config> -v /genetics:/genetics -v /var/log/dx-str
 - `ANSIBLE_SEQ`: sequencing machine, **use comma to include more machines** (e.g. a01295a, a01303b, a1405)
 - `HTTP_PROXY`: http proxy
 - `HTTPS_PROXY`: https proxy
-6. `ANSIBLE_WEEK `: number of week old (e.g. 6)
-7. `DNANEXUS_TOKEN `: authentication token for dxpy login
-8. `ANSIBLE_PICKLE_PATH`: directory to save memory e.g /log/monitoring/ansible.pickle
-9. `ANSIBLE_JIRA_ASSAY`: e.g. TWE,MYE **use comma to include multiple assays**
-10. `JIRA_TOKEN`: Jira API token
-11. `JIRA_EMAIL`: Jira API email
-12. `ANSIBLE_DEBUG`: (optional)
-13. `JIRA_URL`: Jira API Rest url
-14. `SLACK_NOTIFY_JIRA_URL`: Jira helpdesk queue url (for direct link to Jira sample ticket)
-15. `SLACK_TOKEN`: slack auth token
+- `ANSIBLE_WEEK `: number of week old (e.g. 6)
+- `DNANEXUS_TOKEN `: auth token for dxpy login
+- `ANSIBLE_PICKLE_PATH`: directory to save memory e.g /log/monitoring
+- `ANSIBLE_JIRA_ASSAY`: e.g. TWE,MYE **use comma to include multiple assays**
+- `JIRA_TOKEN`: Jira API token
+- `JIRA_EMAIL`: Jira API email
+- `ANSIBLE_DEBUG`: (optional)
+- `JIRA_API_URL`: Jira API Rest url
+- `SLACK_NOTIFY_JIRA_URL`: Jira helpdesk queue url (for direct link to Jira sample ticket)
+- `SLACK_TOKEN`: slack auth token
+- `JIRA_PROJECT_ID`: Jira project id (helpdesk id e.g. EBHD, EBH)
+- `JIRA_REPORTER_ID`: Jira reporter id for raising issue
 
 ## Logging
 
@@ -52,7 +54,7 @@ Log file (``` ansible-run-monitoring.log ```) will be stored in ``` /log/monitor
 
 ## Automation
 
-Cron has been scheduled to run periodically to check for runs older than X number of months
+Cron has been scheduled to run the script daily
 
 ## Mock Testing
 
@@ -66,11 +68,9 @@ docker build -t ansible:test -f Dockerfile.test .
 # Require mounting of /log/monitoring for storing memory, /genetics for mock create runs in /genetics directory
 docker run --env-file <path to .env file> -v <path to /test/log/monitoring>:/log/monitoring -v <path to /test/genetics>:/genetics ansible:test /bin/bash -c "python -u mock.py && python -u main.py"
 
-# Unit test functions in util.py
+# Run unit test
 docker run --env-file <path to .env file> ansible:test
 ```
-#### Mock Testing Command
-`mock.py` will pick a random run from `runs.txt` to create a nested directory in `/genetics`. A log file `run.{name}.lane.all.log` will be generated in `/log/dx-streaming-upload/A01295a`. Running the mock command on the 1st of any month (edit your workspace date/time) should trigger the whole workflow, else the script will stop as there's no runs in its memory (expected). The expected workflow on the 1st should be that the script will recognize the run in `/genetics` and `/log/dx-streaming-upload/A01295a`, thus showing overlap file to be 1. The run will then be stored in `ansible_dict.pickle`. If we change our workspace date/time to any date other than the first and run the mock command, it will send a Slack notification to alert about the deletion. Then we change our workspace date/time back to the 1st and run the mock command, it will proceed to delete the run in `/genetics` and continue searching for overlap between `/genetics` and `/log/dx-streaming-upload/A01295a`
 
 ## Error
 

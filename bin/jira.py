@@ -1,7 +1,7 @@
 """
 Jira Class as wrapper for Jira API request
-EBH is service desk number 4, All Open 14
-EBHD is service desk number 5, All Open 18
+EBH -
+EBHD 10042
 """
 
 import json
@@ -324,9 +324,15 @@ class Jira():
         Specific for Ansible-Run-Monitoring
         """
 
+        if self.debug:
+            # debug helpdesk
+            desk = 'EBHD'
+        else:
+            desk = 'EBH'
+
         jira_data = self.search_issue(
             project,
-            project_name='EBH',
+            project_name=desk,
             trimmed=True)
 
         if jira_data['total'] < 1:
@@ -365,7 +371,8 @@ class Jira():
             project_id: int,
             reporter_id: str,
             priority_id: int,
-            desc: str,):
+            desc: str,
+            assay: bool):
 
         """
         Create a ticket issue
@@ -387,38 +394,78 @@ class Jira():
         if self.debug:
             project_id = 10042
 
-        payload = json.dumps({
-            "fields": {
-                "summary": summary,
-                "issuetype": {
-                    "id": str(issue_id)
-                },
-                "project": {
-                    "id": str(project_id)
-                },
-                "reporter": {
-                    "id": reporter_id
-                },
-                "priority": {
-                    "id": str(priority_id)
-                },
-                "description": {
-                    "type": "doc",
-                    "version": 1,
-                    "content": [
+        if assay:
+            # likely for debug purpose
+            payload = json.dumps({
+                "fields": {
+                    "summary": summary,
+                    "issuetype": {
+                        "id": str(issue_id)
+                    },
+                    "project": {
+                        "id": str(project_id)
+                    },
+                    "reporter": {
+                        "id": reporter_id
+                    },
+                    "priority": {
+                        "id": str(priority_id)
+                    },
+                    "description": {
+                        "type": "doc",
+                        "version": 1,
+                        "content": [
+                            {
+                                "type": "paragraph",
+                                "content": [
+                                    {
+                                        "text": desc,
+                                        "type": "text"
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    "customfield_10070": [
                         {
-                            "type": "paragraph",
-                            "content": [
-                                {
-                                    "text": desc,
-                                    "type": "text"
-                                }
-                            ]
+                            "value": 'MYE'
                         }
                     ]
                 }
-            }
-        })
+            })
+        else:
+            payload = json.dumps({
+                "fields": {
+                    "summary": summary,
+                    "issuetype": {
+                        "id": str(issue_id)
+                    },
+                    "project": {
+                        "id": str(project_id)
+                    },
+                    "reporter": {
+                        "id": reporter_id
+                    },
+                    "priority": {
+                        "id": str(priority_id)
+                    },
+                    "description": {
+                        "type": "doc",
+                        "version": 1,
+                        "content": [
+                            {
+                                "type": "paragraph",
+                                "content": [
+                                    {
+                                        "text": desc,
+                                        "type": "text"
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                }
+            })
 
         response = self.http.post(
             url,

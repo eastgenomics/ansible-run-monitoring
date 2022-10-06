@@ -204,10 +204,10 @@ class TestStringMethods(unittest.TestCase):
         email = os.environ['JIRA_EMAIL']
         url = os.environ['JIRA_API_URL']
 
-        jira = Jira(token, email, url)
+        jira = Jira(token, email, url, True)
 
         one_sample = '220304_A01295_0063_AH7TFVDMXY'
-        project = 'EBH'
+        project = 'EBHD'
         data = jira.search_issue(
             one_sample, project_name=project, trimmed=True)
 
@@ -233,7 +233,7 @@ class TestStringMethods(unittest.TestCase):
 
             self.assertEqual(
                 [assay, status.upper(), key],
-                ['TWE', 'ALL SAMPLES RELEASED', 'EBH-922'],
+                ['MYE', 'NEW', 'EBHD-480'],
                 'search_issue return faulty for single ticket')
 
             self.assertEqual(
@@ -246,7 +246,7 @@ class TestStringMethods(unittest.TestCase):
 
             self.assertEqual(
                 [assayc, statusc.upper(), keyc],
-                ['TWE', 'ALL SAMPLES RELEASED', 'EBH-897'],
+                ['MYE', 'NEW', 'EBHD-492'],
                 'search_issue return faulty for RE: ticket')
 
 

@@ -64,6 +64,7 @@ def post_message_to_slack(
         # msg is a dict which need to be compiled
         # into multiple Slack msg (if too long)
         data = []
+        data_count = 0
 
         for run, body in message.items():
 
@@ -76,11 +77,13 @@ def post_message_to_slack(
             gused = round(usage[1] / 1024 / 1024 / 1024, 2)
             gpercent = round((usage[1] / usage[0]) * 100, 2)
 
+            # format message depending on msg type
             if deleted:
                 # send about deleted runs
                 data.append(
                     f'`/genetics/{seq}/{run}`\n'
                     f'<{jira_url}{key}|{status}> | {assay} | ~{size} GB')
+                data_count += 1
             elif stale:
                 # send about stale run
                 created_date = body['created']
@@ -89,9 +92,9 @@ def post_message_to_slack(
                 created_dt = dt.datetime.strptime(created_date, '%Y-%m-%d')
                 duration = today - created_dt
 
-                if duration.days > 2 and key is None:
+                if duration.days > 1 and key is None:
                     # if there's no jira ticket
-                    # and runs have been more than 2 days
+                    # and runs have been more than 1 day
                     data.append(
                         f'`/genetics/{seq}/{run}`\n'
                         'Run is missing associated Jira ticket')
@@ -100,18 +103,20 @@ def post_message_to_slack(
                         f'>{round(duration.days / 7, 2)} weeks '
                         f'{duration.days % 7} days ago\n'
                         )
+                    data_count += 1
                 elif duration.days > 30 and status != 'ALL SAMPLES RELEASED':
                     # if ticket is old
                     # and status still not released
                     data.append(
                         f'`/genetics/{seq}/{run}`\n'
-                        'Run still not released'
+                        'Run still not released '
                         f'<{jira_url}{key}|{status}>')
                     data.append(
                         f'><{url}|DNANexus Link>\n'
                         f'>{round(duration.days / 7, 2)} weeks '
                         f'{duration.days % 7} days ago\n'
                         )
+                    data_count += 1
                 else:
                     # runs have jira ticket
                     # status == all released
@@ -133,10 +138,13 @@ def post_message_to_slack(
                     f'>{round(duration.days / 7, 2)} weeks '
                     f'{duration.days % 7} days ago\n'
                     )
+                data_count += 1
 
         if not data:
             log.info('No data to post to Slack')
             return None
+
+        log.info(f'Posting {data_count} runs')
 
         text_data = '\n'.join(data)
 

@@ -172,7 +172,8 @@ def main():
                 JIRA_PROJECT_ID,
                 JIRA_REPORTER_ID,
                 3,
-                desc)
+                desc,
+                False)
 
             if 'id' in response:
                 # log the raised issue key for reference in future
@@ -189,7 +190,7 @@ def main():
                 log.error(response)
                 sys.exit('END SCRIPT')
 
-    elif today.day in [24, 25]:
+    elif today.day == 24:
         # send countdown notification on runs to be deleted
         # roughly a week before 1st
         log.info(today)
@@ -289,9 +290,10 @@ def main():
                         created_on,
                         round(duration.days / 7, 2)))
 
-                    if assay in JIRA_ASSAY:
+                    if key is None or assay in JIRA_ASSAY:
                         # have 002 project & old enough
-                        # Jira ticket not ALL SAMPLE RLEASED
+                        # Have no Jira ticket
+                        # or Jira ticket not All RELEASED
 
                         # check if stale
                         temp_stale[project] = {
@@ -318,7 +320,7 @@ def main():
                     created_on,
                     round(duration.days / 7, 2)))
 
-                if assay in JIRA_ASSAY:
+                if key is None or assay in JIRA_ASSAY:
                     # have 002 project & not old enough
                     # Jira ticket - no idea
 
