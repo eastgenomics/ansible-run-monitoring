@@ -1,21 +1,19 @@
 # Ansible Run Monitoring
 
-Python script to report deletable runs in `/genetics` on ansible server by sending email to helpdesk & automate deletion of stale run
+Script to automate deletion of qualified runs in `/genetics` and notifying of stale runs. An alert will be sent to Slack before the deletion.
 
 ## Script Workflow
 
-- Get all runs in `genetics` directory and `log` directory (`/var/log/dx-streaming-upload`) in ansible server
-- Compare runs in both directory for overlap (runs which have log in log directory - meaning it has been uploaded to DNANexus)
+- Script will be scheduled to run every day by cron
+- Compile list of runs in `/genetics`
 - To qualify for automated deletion, each runs need to fulfill four main criterias: 
-  - 002 project of run created on DNANexus 
-  - Run folder exist in `staging52`
-  - 002 project has been created for more than `ANSIBLE_WEEK`
+  - 002 project on DNANexus
+  - Runs on `staging52`
+  - Created `ANSIBLE_WEEK` ago
   - have Jira ticket with status `ALL SAMPLES RELEASED`
-  - have assay option in `ANSIBLE_JIRA_ASSAY`
-- Compile all qualified runs & save it in memory (pickle)
-- Send email to helpdesk on other unqualified runs e.g. runs without `ALL SAMPLES RELEASED` Jira status or 002 project hasn't been created for long enough
-- Send Slack reminder on qualified runs
-- Delete qualified runs in the next run (e.g. 1st of next month)
+  - assay in `ANSIBLE_JIRA_ASSAY`
+- Compile all qualified runs & save it to memory (pickle)
+- Send Slack notification on stale run + alert on automated deletion roughly a week before deletion
 
 ## Rebuilding Docker Image
 
@@ -28,25 +26,21 @@ docker run --env-file <path to config> -v /genetics:/genetics -v /var/log/dx-str
 
 ## Config Env Variables
 
-1. `ANSIBLE_GENETICDIR`: the directory to look into for original genetic run. **This should be directory in docker container**
-2. `ANSIBLE_LOGSDIR`: the directory to look into for uploaded run logs **This should be directory in docker container**
-3. `ANSIBLE_SENDER`: the 'from' for email function (e.g. BioinformaticsTeamGeneticsLab@addenbrookes.nhs.uk)
-4. `ANSIBLE_RECEIVERS`: the 'send to' for email function, **use comma to include multiple emails** (e.g. abc@email.com, bbc@email.com)
-5. `ANSIBLE_SERVER`: server host (str) for SMTP email function
-6. `ANSIBLE_PORT`: port number for SMTP email function
-7. `ANSIBLE_SEQ`: sequencing machine, **use comma to include more machines** (e.g. a01295, a01303, a1405)
-8. `HTTP_PROXY`: http proxy
-9. `HTTPS_PROXY`: https proxy
-10. `ANSIBLE_WEEK `: number of week old (e.g. 6)
-11. `DNANEXUS_TOKEN `: authentication token for dxpy login
-12. `ANSIBLE_PICKLE_PATH`: directory to save memory e.g /log/monitoring/ansible.pickle
-13. `ANSIBLE_JIRA_ASSAY`: e.g. TWE,MYE **use comma to include multiple assays**
-14. `JIRA_TOKEN`: Jira API token
-15. `JIRA_EMAIL`: Jira API email
-16. `ANSIBLE_DEBUG`: (optional)
-17. `JIRA_URL`: Jira API Rest url
-18. `SLACK_NOTIFY_JIRA_URL`: Jira helpdesk queue url (for direct link to Jira sample ticket)
-19. `SLACK_TOKEN`: slack auth token
+- `ANSIBLE_GENETICDIR`: the directory to look into for original genetic run. **This should be directory in docker container**
+- `ANSIBLE_LOGSDIR`: the directory to look into for uploaded run logs **This should be directory in docker container**
+- `ANSIBLE_SEQ`: sequencing machine, **use comma to include more machines** (e.g. a01295a, a01303b, a1405)
+- `HTTP_PROXY`: http proxy
+- `HTTPS_PROXY`: https proxy
+6. `ANSIBLE_WEEK `: number of week old (e.g. 6)
+7. `DNANEXUS_TOKEN `: authentication token for dxpy login
+8. `ANSIBLE_PICKLE_PATH`: directory to save memory e.g /log/monitoring/ansible.pickle
+9. `ANSIBLE_JIRA_ASSAY`: e.g. TWE,MYE **use comma to include multiple assays**
+10. `JIRA_TOKEN`: Jira API token
+11. `JIRA_EMAIL`: Jira API email
+12. `ANSIBLE_DEBUG`: (optional)
+13. `JIRA_URL`: Jira API Rest url
+14. `SLACK_NOTIFY_JIRA_URL`: Jira helpdesk queue url (for direct link to Jira sample ticket)
+15. `SLACK_TOKEN`: slack auth token
 
 ## Logging
 
