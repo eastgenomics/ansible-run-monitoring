@@ -189,6 +189,9 @@ class Jira():
             issues += response.json()['values']
             count += 50
 
+            if count > 5000:
+                break
+
         if trimmed:
             result = []
 
