@@ -28,12 +28,13 @@ class Reporter(object):
     Reporter object for Jira reporter
     """
     def __init__(self, data):
-        self.id = data.get('accountId', None)
-        self.account_type = data.get('accountType', None)
-        self.active = data.get('active', None)
-        self. name = data.get('displayName', None)
-        self.email = data.get('emailAddress', None)
-        self.time = data.get('timeZone', None)
+        if data is not None:
+            self.id = data.get('accountId', None)
+            self.account_type = data.get('accountType', None)
+            self.active = data.get('active', None)
+            self. name = data.get('displayName', None)
+            self.email = data.get('emailAddress', None)
+            self.time = data.get('timeZone', None)
 
 
 class Creator(object):
