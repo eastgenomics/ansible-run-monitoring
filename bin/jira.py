@@ -163,7 +163,7 @@ class Jira():
             self,
             servicedesk_id: int,
             queue_id: int,
-            trimmed: bool = False):
+            trimmed: bool = False) -> list:
         """
         Get all issues of a queue in specified service desk
         Inputs:
@@ -176,22 +176,26 @@ class Jira():
             headers=self.headers,
             auth=self.auth)
 
+        count = 50
+        issues = response.json()['values']
+
+        while response.json()['isLastPage'] is False:
+            query_url = url + f'?start={count}'
+            response = self.http.get(
+                query_url,
+                headers=self.headers,
+                auth=self.auth)
+
+            issues += response.json()['values']
+            count += 50
+
         if trimmed:
             result = []
-            data = response.json()
 
-            for issue in data['values']:
+            for issue in issues:
                 result.append(Issue(issue).__dict__)
-
-            return {
-                'size': data['size'],
-                'isLastPage': data['isLastPage'],
-                'limit': data['limit'],
-                'start': data['start'],
-                'values': result
-                }
-
-        return response.json()
+            return result
+        return issues
 
     def get_issue(
             self,
