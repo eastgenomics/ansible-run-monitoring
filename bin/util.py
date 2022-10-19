@@ -4,17 +4,12 @@ import dxpy as dx
 import json
 import os
 import pickle
-import smtplib
 import requests
+import shutil
 
-from email.mime.application import MIMEApplication
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
-from email.utils import COMMASPACE, formatdate
-from os.path import basename
 from requests.adapters import HTTPAdapter
-from tabulate import tabulate
 from urllib3.util import Retry
+from dateutil.relativedelta import relativedelta
 
 from .helper import get_logger
 
@@ -24,20 +19,25 @@ log = get_logger("util log")
 def post_message_to_slack(
         channel: str,
         token: str,
-        message,
+        data,
         debug: bool,
-        today=None,
-        slack_url=None,
+        usage: tuple = (0, 0, 0),
+        today: dt.datetime = None,
+        jira_url: str = None,
         notification: bool = False,
-        delete: bool = False) -> None:
+        stale: bool = False) -> None:
     """
     Function to send Slack notification
     Inputs:
-        channel: egg-alerts etc
-        message: str or list
+        channel: e.g. egg-alerts
+        token: slack token
+        data: str or dict
         debug: whether debug mode (channel: egg-test) or not
-    Returns:
-        dict: slack api response
+        usage: disk size usage (tuple)
+        today: datetime
+        jira_url: jira_slack_notify url
+        notification: True if complicated msg
+        stale: True when sending stale run
     """
 
     log.info(f'Sending POST request to channel: #{channel}')
@@ -49,99 +49,108 @@ def post_message_to_slack(
     if debug:
         channel = 'egg-test'
 
-    if not notification:
-        try:
-            response = http.post('https://slack.com/api/chat.postMessage', {
-                'token': token,
-                'channel': f'#{channel}',
-                'text': message
-            }).json()
+    if notification:
+        # complicated msg sending where
+        # msg is a dict which need to be compiled
+        # into multiple Slack msg (if too long)
+        final_msg = []
+        data_count = 0
 
-            http.close()
+        for run, body in data.items():
 
-            if response['ok']:
-                log.info(f'POST request to channel #{channel} successful')
-                return True
-            else:
-                # slack api request failed
-                error_code = response['error']
-                log.error(error_code)
-                return False
+            seq = body['seq']
+            key = body['key']
+            status = body['status']
+            assay = body['assay']
+            size = body['size']
+            gtotal = round(usage[0] / 1024 / 1024 / 1024, 2)
+            gused = round(usage[1] / 1024 / 1024 / 1024, 2)
+            gpercent = round((usage[1] / usage[0]) * 100, 2)
 
-        except Exception as e:
-            # endpoint request fail from internal server side
-            log.error(f'Error sending POST request to channel #{channel}')
-            log.error(e)
-            return False
-    else:
-        data = []
+            # format message depending on msg type
+            if stale:
+                # send about stale run
+                created_date = body['created']
+                url = body['url']
 
-        for run, _, status, key in message:
-            data.append(f'<{slack_url}{key}|{run}> with status `{status}`')
+                created_dt = dt.datetime.strptime(created_date, '%Y-%m-%d')
+                duration = today - created_dt
 
-        text_data = '\n'.join(data)
-
-        today = get_next_month(today).strftime("%d %b %Y")
-
-        if delete:
-            pretext = (
-                'ansible-run-monitoring: '
-                'These runs have been deleted'
-            )
-        else:
-            pretext = (
-                'ansible-run-monitoring: '
-                f'runs that will be deleted on {today}'
-            )
-
-        # number above 7,995 seems to get truncation
-        if len(text_data) < 7995:
-
-            response = http.post(
-                'https://slack.com/api/chat.postMessage', {
-                    'token': token,
-                    'channel': f'#{channel}',
-                    'attachments': json.dumps([{
-                        "pretext": pretext,
-                        "text": text_data}])
-                }).json()
-
-            http.close()
-
-            if response['ok']:
-                log.info(f'POST request to channel #{channel} successful')
-                return True
-            else:
-                # slack api request failed
-                error_code = response['error']
-                log.error(error_code)
-                return False
-        else:
-            # chunk data based on its length after '\n'.join()
-            # if > than 7,995 after join(), we append
-            # data[start:end-1] into chunks.
-            # start = end - 1 and repeat
-            chunks = []
-            start = 0
-            end = 1
-
-            for index in range(1, len(data) + 1):
-                chunk = data[start:end]
-
-                if len('\n'.join(chunk)) < 7995:
-                    end = index
-
-                    if end == len(data):
-                        chunks.append(data[start:end])
+                if duration.days > 1 and key is None:
+                    # if there's no jira ticket
+                    # and runs have been more than 1 day
+                    final_msg.append(
+                        f'`/genetics/{seq}/{run}`\n'
+                        'Run is missing associated Jira ticket')
+                    final_msg.append(
+                        f'><{url}|DNANexus Link>\n'
+                        f'>{duration.days // 7} weeks '
+                        f'{duration.days % 7} days ago\n'
+                        )
+                    data_count += 1
+                elif duration.days > 30 and status != 'ALL SAMPLES RELEASED':
+                    # if ticket is old
+                    # and status still not released
+                    final_msg.append(
+                        f'`/genetics/{seq}/{run}`\n'
+                        'Run still not released '
+                        f'<{jira_url}{key}|{status}>')
+                    final_msg.append(
+                        f'><{url}|DNANexus Link>\n'
+                        f'>{duration.days // 7} weeks '
+                        f'{duration.days % 7} days ago\n'
+                        )
+                    data_count += 1
                 else:
-                    chunks.append(data[start:end-1])
-                    start = end - 1
+                    # runs have jira ticket
+                    # status == all released
+                    continue
+            else:
+                # remind about to-be-deleted runs
+                created_date = body['created']
+                url = body['url']
 
-            log.info(f'Sending data in {len(chunks)} chunks')
+                created_dt = dt.datetime.strptime(created_date, '%Y-%m-%d')
+                duration = today - created_dt
 
-            for chunk in chunks:
-                text_data = '\n'.join(chunk)
+                final_msg.append(
+                    f'`/genetics/{seq}/{run}`\n'
+                    f'<{jira_url}{key}|{status}> | {assay} | ~{size}GB')
+                final_msg.append(
+                    f'><{url}|DNANexus Link>\n'
+                    f'>Created Date: {created_date}\n'
+                    f'>{duration.days // 7} weeks '
+                    f'{duration.days % 7} days ago\n'
+                    )
+                data_count += 1
 
+        if not final_msg:
+            log.info('No data to post to Slack')
+            return None
+
+        log.info(f'Posting {data_count} runs')
+
+        text_data = '\n'.join(final_msg)
+
+        today = get_next_month(today, 1).strftime("%d %b %Y")
+
+        if stale:
+            pretext = (
+                ':warning: ansible-run-monitoring: '
+                f'{data_count} stale runs\n'
+                f'genetics usage: {gused}/{gtotal}GB | {gpercent}%'
+            )
+        else:
+            pretext = (
+                ':warning: ansible-run-monitoring: '
+                f'{data_count} runs that *WILL BE DELETED* on *{today}*\n'
+                f'genetics usage: {gused}/{gtotal}GB | {gpercent}%'
+
+            )
+
+        # number above 7,700 seems to get weird truncation
+        if len(text_data) < 7700:
+            try:
                 response = http.post(
                     'https://slack.com/api/chat.postMessage', {
                         'token': token,
@@ -150,17 +159,74 @@ def post_message_to_slack(
                             "pretext": pretext,
                             "text": text_data}])
                     }).json()
+                http.close()
+            except Exception as e:
+                # endpoint request fail from internal server side
+                log.error(f'Error sending POST request to channel #{channel}')
+                log.error(e)
+        else:
+            # chunk data based on its length after '\n'.join()
+            # if > than 7700 after join(), we append
+            # data[start:end-1] into chunks.
+            # start = end - 1 and repeat
+            chunks = []
+            start = 0
+            end = 1
 
-                if response['ok']:
-                    log.info(f'POST request to channel #{channel} successful')
-                    continue
+            for index in range(1, len(final_msg) + 1):
+                chunk = final_msg[start:end]
+
+                if len('\n'.join(chunk)) < 7700:
+                    end = index
+
+                    if end == len(final_msg):
+                        chunks.append(final_msg[start:end])
                 else:
-                    error_code = response['error']
-                    log.error(error_code)
+                    chunks.append(final_msg[start:end-1])
+                    start = end - 1
+
+            log.info(f'Sending data in {len(chunks)} chunks')
+
+            for chunk in chunks:
+                text_data = '\n'.join(chunk)
+
+                try:
+                    response = http.post(
+                        'https://slack.com/api/chat.postMessage', {
+                            'token': token,
+                            'channel': f'#{channel}',
+                            'attachments': json.dumps([{
+                                "pretext": pretext,
+                                "text": text_data}])
+                        }).json()
+                except Exception as e:
+                    # endpoint request fail from internal server side
+                    log.error(
+                        f'Error sending POST request to channel #{channel}')
+                    log.error(e)
+            http.close()
+    else:
+        # simple msg sending
+        try:
+            response = http.post('https://slack.com/api/chat.postMessage', {
+                'token': token,
+                'channel': f'#{channel}',
+                'text': data
+            }).json()
 
             http.close()
 
-            return True
+        except Exception as e:
+            # endpoint request fail from internal server side
+            log.error(f'Error sending POST request to channel #{channel}')
+            log.error(e)
+
+    if response['ok']:
+        log.info(f'POST request to channel #{channel} successful')
+    else:
+        # slack api request failed
+        error_code = response['error']
+        log.error(error_code)
 
 
 def directory_check(directories: list) -> bool:
@@ -191,11 +257,10 @@ def dx_login(token: str) -> bool:
     Output: boolean
     """
 
-    # try to get auth token from env (i.e. run in docker)
     try:
         DX_SECURITY_CONTEXT = {
             "auth_token_type": "Bearer",
-            "auth_token": token
+            "auth_token": str(token)
         }
 
         dx.set_security_context(DX_SECURITY_CONTEXT)
@@ -203,39 +268,38 @@ def dx_login(token: str) -> bool:
 
         return True
 
-    except Exception as error:
-        log.error(error)
+    except dx.exceptions.InvalidAuthentication as e:
+        log.error(e.error_message())
 
         return False
 
 
-def check_project_directory(project: str, token: str) -> bool:
+def check_project_directory(directory: str) -> bool:
 
     """
     Function to check if project is in staging52.
+    by checking if there's any file returned from that directory
     Input:
-        project: directory path
+        directory: directory path
     Return:
         boolean
     """
 
-    if not dx_login(token):
-        return False
-
-    dx_obj = list(dx.find_data_objects(
+    # should return data if there's a file
+    # return None if no file
+    dx_obj = dx.find_one_data_object(
+        zero_ok=True,
         project='project-FpVG0G84X7kzq58g19vF1YJQ',
-        folder=f'/{project}',
-        limit=1)
-    )
+        folder=f'/{directory}')
 
     if dx_obj:
         return True
 
-    dx_obj = list(dx.find_data_objects(
+    # check /processed directory in staging52 too
+    dx_obj = dx.find_one_data_object(
+        zero_ok=True,
         project='project-FpVG0G84X7kzq58g19vF1YJQ',
-        folder=f'/processed/{project}',
-        limit=1)
-    )
+        folder=f'/processed/{directory}')
 
     if dx_obj:
         return True
@@ -243,7 +307,7 @@ def check_project_directory(project: str, token: str) -> bool:
     return False
 
 
-def get_describe_data(project: str, token: str) -> list:
+def get_describe_data(project: str) -> list:
 
     """
     Function to see if there is 002 project
@@ -254,122 +318,14 @@ def get_describe_data(project: str, token: str) -> list:
         dict of project describe data
     """
 
-    if not dx_login(token):
-        return False
-
-    dxes = list(dx.search.find_projects(
+    projects = list(dx.search.find_projects(
         name=f'002_{project}.*',
         name_mode="regexp",
         describe=True,
         limit=1
         ))
 
-    return dxes[0] if dxes else []
-
-
-def send_mail(
-        send_from: str,
-        send_to: list,
-        subject: str,
-        server: str,
-        port: int,
-        df=None,
-        files=None) -> None:
-
-    """
-    Function to send server email.
-    Inputs:
-        send_from: str
-        send_to: list
-        subject: text
-        df: DataFrame or None
-        files: list
-    """
-
-    assert isinstance(send_to, list)
-
-    # email messge content
-    text = """
-        Here's the data for duplicated runs found in
-        "/genetics" & "/var/log/dx-streaming-uploads" & DNAnexus:
-
-        {table}
-
-        Kind Regards,
-        Beep Robot
-
-    """
-
-    html = """
-        <html>
-        <head>
-        <style>
-        table, th, td {{ border: 1px solid black; border-collapse: collapse; }}
-        th, td {{ padding: 5px; }}
-        </style>
-        </head>
-        <body>
-        <p>
-        Here's the data for duplicated runs found in
-        "/genetics" & "/var/log/dx-streaming-uploads" & DNAnexus:
-        </p>
-        {table}
-        <p>Kind Regards</p>
-        <p>Beep Robot~</p>
-        </body></html>
-    """
-
-    if df is not None:
-        # we make df into table in email using tabulate
-
-        col_header = list(df.columns.values)
-        text = text.format(table=tabulate(
-            df,
-            headers=col_header,
-            tablefmt="grid"))
-
-        html = html.format(table=tabulate(
-            df,
-            headers=col_header,
-            tablefmt="html"))
-
-        msg = MIMEMultipart(
-            "alternative", None, [MIMEText(text), MIMEText(html, 'html')])
-
-    # email headers
-    msg['From'] = send_from
-    msg['To'] = COMMASPACE.join(send_to)
-    msg['Date'] = formatdate(localtime=True)
-    msg['Subject'] = subject
-
-    # email message attachment (default: None)
-    for f in files or []:
-        with open(f, "rb") as fil:
-            part = MIMEApplication(
-                fil.read(),
-                Name=basename(f)
-            )
-        # After the file is closed
-        part['Content-Disposition'] = 'attachment; filename="%s"' % basename(f)
-        msg.attach(part)
-
-    try:
-        smtp = smtplib.SMTP(server, port)
-
-        log.info(f'Sending email to {COMMASPACE.join(send_to)}')
-        smtp.sendmail(send_from, send_to, msg.as_string())
-        log.info(f'Email to {COMMASPACE.join(send_to)} SENT')
-
-        smtp.quit()
-
-    except Exception as e:
-        log.error(f'Send email function failed with error: {e}')
-        message = (
-            "Ansible-Monitoring: ERROR sending to helpdesk! Error Code: \n"
-            f"`{e}`"
-            )
-
-        post_message_to_slack('egg-alerts', message)
+    return projects[0] if projects else []
 
 
 def read_or_new_pickle(path: str) -> dict:
@@ -385,46 +341,66 @@ def read_or_new_pickle(path: str) -> dict:
         with open(path, 'rb') as f:
             pickle_dict = pickle.load(f)
     else:
-        pickle_dict = collections.defaultdict(list)
+        pickle_dict = collections.defaultdict(dict)
         with open(path, 'wb') as f:
             pickle.dump(pickle_dict, f)
 
     return pickle_dict
 
 
-def get_next_month(today):
+def get_next_month(today: dt.datetime, day: int):
     """
-    Function to get the next automated-archive run date
+    Function to get the next nth datetime
     Input:
-        today (Datetime)
-    Return (Datetime):
-        If today.day is between 1-15: return 15th of this month
-        If today.day is after 15: return 1st day of next month
+        day: target date
     """
-
-    while today.day != 1:
+    while today.day != day:
         today += dt.timedelta(days=1)
 
     return today
 
 
-def get_runs(seqs: list, genetic_dir: str, log_dir: str, tmp_seq: dict = {}):
+def get_weekday(date: dt.datetime, day: int, forward: bool = True):
+    """
+    Function to return datetime of n day of the week
+    Input:
+        day: day of week (e.g. Friday = 5)
+        forward: count forward if True
+    """
+    while date.isoweekday() != day:
+        if forward:
+            date += dt.timedelta(days=1)
+        else:
+            date -= dt.timedelta(days=1)
+
+    return date
+
+
+def get_runs(seqs: list, gene_path: str, log_path: str):
     """
     Function to check overlap between genetic_dir and log_dir
     Input:
         seqs: list of sequencers
         genetic_dir: path to /genetics
-        log_dir: path to all the log files
+        log_dir: path to all log files
     """
     genetic_directory = []
     logs_directory = []
+    tmp_seq = {}
 
     for sequencer in seqs:
         log.info(f'Loop through {sequencer} started')
 
         # Defining gene and log directories
-        gene_dir = f'{genetic_dir}/{sequencer}'
-        logs_dir = f'{log_dir}/{sequencer}'
+        gene_dir = f'{gene_path}/{sequencer}'
+        logs_dir = f'{log_path}/{sequencer}'
+
+        # list files in directories
+        genetics_num = len(os.listdir(gene_dir))
+        logs_num = len(os.listdir(logs_dir))
+
+        log.info(f'{genetics_num} folders in {sequencer} detected')
+        log.info(f'{logs_num} logs in {sequencer} detected')
 
         # Get all files in gene and log dir
         genetic_files = [x.strip() for x in os.listdir(gene_dir)]
@@ -435,48 +411,66 @@ def get_runs(seqs: list, genetic_dir: str, log_dir: str, tmp_seq: dict = {}):
         for run in genetic_files:
             tmp_seq[run] = sequencer
 
-        genetics_num = len(os.listdir(gene_dir))
-        logs_num = len(os.listdir(logs_dir))
-
-        log.info(f'{genetics_num} folders in {sequencer} detected')
-        log.info(f'{logs_num} logs in {sequencer} detected')
-
     return genetic_directory, logs_directory, tmp_seq
 
 
-def check_age(data: dict, today, week: int):
+def get_date(date: float) -> dt.datetime:
     """
-    Function to check if project describe() date
-    is old enough (duration to today's date is > week)
+    Function to turn epoch time to datetime
+    Input:
+        date: epoch
+    """
+    return dt.datetime.fromtimestamp(date)
+
+
+def get_duration(today: dt.datetime, date: dt.datetime) -> dt.timedelta:
+    """
+    Function to get duration (in timedelta) between input date
+    and today
     Inputs:
-        data: project describe() data
-        today: DateTime (today's date)
+        today: today date
+        date: target date
+    """
+    return today - date
+
+
+def check_age(date: dt.datetime, today: dt.datetime, week: int) -> bool:
+    """
+    Function to check input date is older than input week
+    Inputs:
+        date: input date
+        today: today date
         week: ANSIBLE_WEEK
     """
-    # convert millisec from Epoch datetime to readable human format
-    created_date = dt.datetime.fromtimestamp(
-        data['created'] / 1000.0)
-    created_on = created_date.strftime('%Y-%m-%d')
-
-    duration = today - created_date
-
-    # check if created_date is more than ANSIBLE_WEEK week(s)
-    # duration (sec) / 60 to minute / 60 to hour / 24 to days
-    # If total days is > 7 days * 6 weeks
-    old_enough = duration.total_seconds() / (
-        24*60*60) > 7 * int(week)
-
-    return old_enough, created_on, duration
+    return date + relativedelta(weeks=+int(week)) < today
 
 
 def clear_memory(pickle_path: str) -> None:
     """
-    Function to erase everything in pickle
+    Function to erase everything in pickle memory
+    Input:
+        pickle_path: directory path to pickle
     """
-    d = read_or_new_pickle(pickle_path)
 
-    d['runs'] = []
-
-    log.info('Writing into pickle file')
+    log.info('Clear pickle')
     with open(pickle_path, 'wb') as f:
-        pickle.dump(d, f)
+        pickle.dump(collections.defaultdict(dict), f)
+
+
+def get_size(path: str) -> float:
+    """
+    Function to get size of directory
+    Taken from https://note.nkmk.me/en/
+    Input:
+        path: directory path
+
+    Return: bytes -> GB
+    """
+    total = 0
+    with os.scandir(path) as it:
+        for entry in it:
+            if entry.is_file():
+                total += entry.stat().st_size
+            elif entry.is_dir():
+                total += get_size(entry.path)
+    return round(total / 1024 / 1024 / 1024, 2)
