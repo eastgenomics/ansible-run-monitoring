@@ -1,6 +1,6 @@
 # Ansible Run Monitoring
 
-Script to automate deletion of local sequencing data from the server and notifying of stale runs (runs older than 1 day without associated Jira ticket or runs older than 30 days without Jira status `ALL SAMPLES RELEASED`). An alert will be sent to Slack before the deletion.
+Script to automate deletion of local sequencing data from the server and notifying of stale runs (runs older than 1 day without associated Jira ticket or runs older than 30 days without Jira status `ALL SAMPLES RELEASED`). Automated deletion happens every 1st of every month. An alert will be sent on the 24th before deletion on the coming 1st. If the 24th falls on a weekend, the alert will be sent on the Friday instead.
 
 ## Script Workflow
 
@@ -8,12 +8,12 @@ Script to automate deletion of local sequencing data from the server and notifyi
 - Compile list of runs in `/genetics`
 - To qualify for automated deletion, each runs need to fulfill four main criteria: 
   - 002 project on DNANexus
-  - Runs on uploaded to `001_Staging_Area52` DNAnexus project
+  - Runs on `001_Staging_Area52` DNAnexus project
   - Created `ANSIBLE_WEEK` ago
   - have Jira ticket with status `ALL SAMPLES RELEASED`
   - assay in `ANSIBLE_JIRA_ASSAY`
 - Compile all qualified runs & save it to memory (pickle)
-- Send Slack notification on stale run + alert on automated deletion roughly a week before deletion
+- Send Slack notification on stale run + alert on automated deletion (24th of the month)
 
 ## Rebuilding Docker Image
 

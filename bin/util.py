@@ -19,7 +19,7 @@ log = get_logger("util log")
 def post_message_to_slack(
         channel: str,
         token: str,
-        message,
+        data,
         debug: bool,
         usage: tuple = (0, 0, 0),
         today: dt.datetime = None,
@@ -31,7 +31,7 @@ def post_message_to_slack(
     Inputs:
         channel: e.g. egg-alerts
         token: slack token
-        message: str or dict
+        data: str or dict
         debug: whether debug mode (channel: egg-test) or not
         usage: disk size usage (tuple)
         today: datetime
@@ -56,7 +56,7 @@ def post_message_to_slack(
         data = []
         data_count = 0
 
-        for run, body in message.items():
+        for run, body in data.items():
 
             seq = body['seq']
             key = body['key']
@@ -211,7 +211,7 @@ def post_message_to_slack(
             response = http.post('https://slack.com/api/chat.postMessage', {
                 'token': token,
                 'channel': f'#{channel}',
-                'text': message
+                'text': data
             }).json()
 
             http.close()

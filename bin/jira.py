@@ -181,7 +181,7 @@ class Jira():
                 auth=self.auth)
 
             if not response.ok:
-                break
+                raise Exception(f'Response returned error {response}')
 
             issues += response.json()['values']
             count += 50
@@ -376,7 +376,7 @@ class Jira():
             reporter_id: str,
             priority_id: int,
             desc: str,
-            assay: bool):
+            assay: bool) -> dict:
 
         """
         Create a ticket issue
@@ -387,6 +387,7 @@ class Jira():
             reporter_id: id of reporter
             desc: issue description
             priority_id: id of priority (e.g. 3)
+            assay: put an assay tag on issue
         """
         url = f"{self.api_url}/api/3/issue"
 

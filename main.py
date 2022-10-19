@@ -51,14 +51,22 @@ def main():
     if not dx_login(DNANEXUS_TOKEN):
         message = "ANSIBLE-MONITORING: ERROR with dxpy login!"
 
-        post_message_to_slack('egg-alerts', SLACK_TOKEN, message, DEBUG)
+        post_message_to_slack(
+            channel='egg-alerts',
+            token=SLACK_TOKEN,
+            data=message,
+            debug=DEBUG)
         sys.exit('END SCRIPT')
 
     # check if /genetics & /logs/dx-streaming-upload exist
     if not directory_check([GENETIC_DIR, LOGS_DIR]):
         message = f"ANSIBLE-MONITORING: ERROR with missing directory!"
 
-        post_message_to_slack('egg-alerts', SLACK_TOKEN, message, DEBUG)
+        post_message_to_slack(
+            channel='egg-alerts',
+            token=SLACK_TOKEN,
+            data=message,
+            debug=DEBUG)
         sys.exit('END SCRIPT')
 
     # get script run date
@@ -116,9 +124,17 @@ def main():
                     log.error(e)
                     clear_memory(ANSIBLE_PICKLE)
 
-                    msg = "ANSIBLE-MONITORING: ERROR with file deletion!"
+                    msg = (
+                        f"ANSIBLE-MONITORING: ERROR with deleting {run}."
+                        "Stopping further automatic deletion."
+                        f"\n```{e}```"
+                    )
+
                     post_message_to_slack(
-                        'egg-alerts', SLACK_TOKEN, msg, DEBUG)
+                        channel='egg-alerts',
+                        token=SLACK_TOKEN,
+                        data=msg,
+                        debug=DEBUG)
 
                     sys.exit('END SCRIPT')
 
@@ -165,14 +181,17 @@ def main():
             # helpdesk 10042 for debug 10040 for prod
 
             log.info('Creating Jira acknowledgement issue')
+            issue_title = (
+                f'{jira_date} Automated deletion of runs from ansible server'
+                )
             response = jira.create_issue(
-                f'{jira_date} Deleted Runs In 10.252.166.184',
-                10124,
-                JIRA_PROJECT_ID,
-                JIRA_REPORTER_ID,
-                3,
-                desc,
-                False)
+                summary=issue_title,
+                issue_id=10124,
+                project_id=JIRA_PROJECT_ID,
+                reporter_id=JIRA_REPORTER_ID,
+                priority_id=3,
+                desc=desc,
+                assay=False)
 
             if 'id' in response:
                 # log the raised issue key for reference in future
@@ -184,7 +203,12 @@ def main():
                 err_msg = response['errors']
                 msg = "ANSIBLE-MONITORING: ERROR with creating Jira ticket!"
                 msg += f'\n`{err_msg}`'
-                post_message_to_slack('egg-alerts', SLACK_TOKEN, msg, DEBUG)
+
+                post_message_to_slack(
+                    channel='egg-alerts',
+                    token=SLACK_TOKEN,
+                    data=msg,
+                    debug=DEBUG)
 
                 log.error(response)
                 sys.exit('END SCRIPT')
@@ -203,10 +227,10 @@ def main():
                 log.info(today)
                 if runs:
                     post_message_to_slack(
-                        'egg-logs',
-                        SLACK_TOKEN,
-                        ansible_pickle,
-                        DEBUG,
+                        channel='egg-logs',
+                        token=SLACK_TOKEN,
+                        data=ansible_pickle,
+                        debug=DEBUG,
                         usage=init_usage,
                         today=today,
                         jira_url=JIRA_SLACK_URL,
@@ -223,10 +247,10 @@ def main():
         # today is the 24th and not a weekend
         if runs:
             post_message_to_slack(
-                'egg-logs',
-                SLACK_TOKEN,
-                ansible_pickle,
-                DEBUG,
+                channel='egg-logs',
+                token=SLACK_TOKEN,
+                data=ansible_pickle,
+                debug=DEBUG,
                 usage=init_usage,
                 today=today,
                 jira_url=JIRA_SLACK_URL,
@@ -276,7 +300,7 @@ def main():
             # found the 002 project & found in staging52
 
             data = project_data['describe']
-            trimmed_id = data['id'].lstrip('project-')
+            trimmed_id = data['id'].replace('project-', '')
             DX_URL = 'https://platform.dnanexus.com/panx/projects'
 
             if old_enough:
@@ -284,8 +308,9 @@ def main():
                 # been there for more than ANSIBLE_WEEK
 
                 if (
-                        status.upper() == 'ALL SAMPLES RELEASED' and
-                        assay in JIRA_ASSAY):
+                    status.upper() == 'ALL SAMPLES RELEASED' and
+                    assay in JIRA_ASSAY
+                        ):
 
                     # Jira ticket is ALL SAMPLES RELEASED
                     # and assay in listed assays
@@ -318,7 +343,7 @@ def main():
                         round(duration.days / 7, 2)))
 
                     if key is None or assay in JIRA_ASSAY:
-                        # have 002 project & old enough
+                        # have 002 project and old enough
                         # Have no Jira ticket
                         # or Jira ticket not All RELEASED
 
@@ -338,9 +363,9 @@ def main():
                     continue
             else:
                 # runs not old enough meaning
-                # runs have not been ther e for longer
+                # runs have not been there for longer
                 # than ANSIBLE_WEEK
-                # won't be marked for deletion
+                # shouldn't be marked for deletion
 
                 log.info('{} {} ::: {} weeks NOT OLD'.format(
                     project,
@@ -388,10 +413,10 @@ def main():
 
     # send about stale run
     post_message_to_slack(
-        'egg-logs',
-        SLACK_TOKEN,
-        temp_stale,
-        DEBUG,
+        channel='egg-logs',
+        token=SLACK_TOKEN,
+        data=temp_stale,
+        debug=DEBUG,
         usage=init_usage,
         today=today,
         jira_url=JIRA_SLACK_URL,
