@@ -8,3 +8,5 @@ test/log
 .env.example
 .gitignore
 README.md
+Dockerfile
+Dockerfile.test

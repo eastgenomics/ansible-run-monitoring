@@ -35,6 +35,7 @@ JIRA_EMAIL = os.environ['JIRA_EMAIL']
 JIRA_API_URL = os.environ['JIRA_API_URL']
 ANSIBLE_WEEK = int(os.environ['ANSIBLE_WEEK']) + 1
 DEBUG = os.environ['ANSIBLE_DEBUG']
+SEQUENCERS = [seq.strip() for seq in os.environ['ANSIBLE_SEQ'].split(',')]
 
 os.environ['PYTHONUNBUFFERED'] = '1'
 
@@ -110,13 +111,18 @@ memory = read_or_new_pickle('/log/monitoring/ansible_dict.test.pickle')
 if memory:
     lines = []
 
+for seq in SEQUENCERS:
+    print(f'Creating /log/dx-streaming-upload/{seq}')
+    os.makedirs(f'/log/dx-streaming-upload/{seq}', exist_ok=True)
 
-# run = random.choice(lines)
+
 seq = 'A01295a'
 
 if args.clear:
     print('Deleting all directories in /genetics')
     for run in os.listdir(f'/genetics/{seq}'):
+        if run == '.gitignore':
+            continue
         try:
             shutil.rmtree(f'/genetics/{seq}/{run}')
         except Exception as e:
@@ -220,6 +226,8 @@ print(f'Runs marked as stale: {stale_count}')
 
 # make run log file in /log
 for d in os.listdir(f'/genetics/{seq}'):
+    if d == '.gitignore':
+        continue
     with open(
             f'/log/dx-streaming-upload/{seq}/run.{d}.lane.all.log', 'w') as f:
         f.write('This is a log file')
