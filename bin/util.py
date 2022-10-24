@@ -88,7 +88,8 @@ def post_message_to_slack(
                         f'{duration.days % 7} days ago\n'
                         )
                     data_count += 1
-                elif duration.days > 30 and status != 'ALL SAMPLES RELEASED':
+                elif duration.days > 30 and \
+                        status.upper() != 'ALL SAMPLES RELEASED':
                     # if ticket is old
                     # and status still not released
                     final_msg.append(

@@ -17,6 +17,7 @@ def main():
     try:
         SLACK_TOKEN = os.environ['SLACK_TOKEN']
         DEBUG = os.environ.get('ANSIBLE_DEBUG', False)
+        SERVER_TESTING = os.environ.get('ANSIBLE_TESTING', False)
 
         GENETIC_DIR = os.environ['ANSIBLE_GENETICDIR']
         LOGS_DIR = os.environ['ANSIBLE_LOGSDIR']
@@ -310,7 +311,10 @@ def main():
         old_enough = check_age(created_date, today, ANSIBLE_WEEK)
 
         # get proj jira details
-        assay, status, key = jira.get_issue_detail(project)
+        if not SERVER_TESTING:
+            assay, status, key = jira.get_issue_detail(project, False)
+        else:
+            assay, status, key = jira.get_issue_detail(project, True)
 
         if project_data and uploaded:
             # found the 002 project & found in staging52
