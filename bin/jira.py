@@ -320,7 +320,8 @@ class Jira():
 
     def get_issue_detail(
             self,
-            project: str):
+            project: str,
+            server: bool):
 
         """
         Function to do an issue search and return its
@@ -331,6 +332,8 @@ class Jira():
         if self.debug:
             # debug helpdesk
             desk = 'EBHD'
+            if server:
+                desk = 'EBH'
         else:
             desk = 'EBH'
 
