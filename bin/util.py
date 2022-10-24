@@ -4,16 +4,10 @@ import dxpy as dx
 import json
 import os
 import pickle
-import smtplib
 import requests
+import shutil
 
-from email.mime.application import MIMEApplication
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
-from email.utils import COMMASPACE, formatdate
-from os.path import basename
 from requests.adapters import HTTPAdapter
-from tabulate import tabulate
 from urllib3.util import Retry
 from dateutil.relativedelta import relativedelta
 
@@ -138,7 +132,7 @@ def post_message_to_slack(
 
         text_data = '\n'.join(data)
 
-        today = get_next_month(today).strftime("%d %b %Y")
+        today = get_next_month(today, 1).strftime("%d %b %Y")
 
         if stale:
             pretext = (
@@ -172,7 +166,7 @@ def post_message_to_slack(
                 log.error(e)
         else:
             # chunk data based on its length after '\n'.join()
-            # if > than 7,995 after join(), we append
+            # if > than 7700 after join(), we append
             # data[start:end-1] into chunks.
             # start = end - 1 and repeat
             chunks = []
@@ -291,14 +285,14 @@ def check_project_directory(directory: str) -> bool:
         boolean
     """
 
-    # should return sth if there's a file
+    # should return data if there's a file
     # return None if no file
     dx_obj = dx.find_one_data_object(
         zero_ok=True,
         project='project-FpVG0G84X7kzq58g19vF1YJQ',
         folder=f'/{directory}')
 
-    if dx_obj is not None:
+    if dx_obj:
         return True
 
     # check /processed directory in staging52 too
@@ -307,7 +301,7 @@ def check_project_directory(directory: str) -> bool:
         project='project-FpVG0G84X7kzq58g19vF1YJQ',
         folder=f'/processed/{directory}')
 
-    if dx_obj is not None:
+    if dx_obj:
         return True
 
     return False
@@ -324,14 +318,14 @@ def get_describe_data(project: str) -> list:
         dict of project describe data
     """
 
-    dxes = list(dx.search.find_projects(
+    projects = list(dx.search.find_projects(
         name=f'002_{project}.*',
         name_mode="regexp",
         describe=True,
         limit=1
         ))
 
-    return dxes[0] if dxes else []
+    return projects[0] if projects else []
 
 
 def read_or_new_pickle(path: str) -> dict:
@@ -354,20 +348,32 @@ def read_or_new_pickle(path: str) -> dict:
     return pickle_dict
 
 
-def get_next_month(today: dt.datetime):
+def get_next_month(today: dt.datetime, day: int):
     """
-    Function to get the next automated-archive run date
+    Function to get the next nth datetime
     Input:
-        today (Datetime)
-    Return (Datetime):
-        If today.day is between 1-15: return 15th of this month
-        If today.day is after 15: return 1st day of next month
+        day: target date
     """
-
-    while today.day != 1:
+    while today.day != day:
         today += dt.timedelta(days=1)
 
     return today
+
+
+def get_weekday(date: dt.datetime, day: int, forward: bool = True):
+    """
+    Function to return datetime of n day of the week
+    Input:
+        day: day of week (e.g. Friday = 5)
+        forward: count forward if True
+    """
+    while date.isoweekday() != day:
+        if forward:
+            date += dt.timedelta(days=1)
+        else:
+            date -= dt.timedelta(days=1)
+
+    return date
 
 
 def get_runs(seqs: list, gene_path: str, log_path: str):

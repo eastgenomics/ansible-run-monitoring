@@ -101,15 +101,34 @@ class TestStringMethods(unittest.TestCase):
 
     def test_get_next_month(self):
         """
-        Function should return 1st of next month
+        Function should return 1st of next month (datetime)
         """
         today = dt.datetime(2022, 1, 2, 15, 0, 0)
-        date = util.get_next_month(today)
+        date = util.get_next_month(today, 1)
 
         with self.subTest():
             self.assertEqual(date.day, 1, 'get_month returned wrong day')
             self.assertGreater(
                 date.month, today.month, 'get_month returned wrong month')
+
+    def test_get_weekday(self):
+        """
+        Function should return datetime for specified day of the week
+        forward and backward
+        """
+        today = dt.datetime(2022, 10, 17)
+        forward = util.get_weekday(today, 2)
+        backward = util.get_weekday(today, 2, False)
+
+        with self.subTest():
+            self.assertEqual(
+                forward,
+                dt.datetime(2022, 10, 18),
+                'get_weekday returned wrong day')
+            self.assertEqual(
+                backward,
+                dt.datetime(2022, 10, 11),
+                'get_weekday backward returned wrong day')
 
     def test_get_runs(self):
         """

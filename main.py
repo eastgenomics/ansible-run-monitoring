@@ -62,7 +62,7 @@ def main():
         sys.exit('END SCRIPT')
 
     # get script run date
-    today = datetime.now()
+    today = datetime.today()
 
     # read memory in /var/log/monitoring
     ansible_pickle = read_or_new_pickle(ANSIBLE_PICKLE)
@@ -74,7 +74,7 @@ def main():
     init_usage = shutil.disk_usage(GENETIC_DIR)
 
     if today.day == 1:
-        # run deletion
+        # run deletion on the 1st
         tmp_delete = collections.defaultdict(dict)
         if runs:
             for run in runs:
@@ -91,6 +91,9 @@ def main():
                 if status.upper() != 'ALL SAMPLES RELEASED':
                     log.info(f'SKIP {GENETIC_DIR}/{seq}/{run}')
                     continue
+
+                assert seq.strip(), 'sequencer is empty'
+                assert run.strip(), 'run ID is empty'
 
                 try:
                     log.info(f'DELETING {GENETIC_DIR}/{seq}/{run}')
@@ -123,33 +126,28 @@ def main():
             # create a Jira ticket for acknowledgement
 
             # get after deletion disk usage
-            p_usage = shutil.disk_usage(GENETIC_DIR)
+            post_usage = shutil.disk_usage(GENETIC_DIR)
             # make datetime into str type
-            j_date = today.strftime('%d/%m/%Y')
-            j_data = []
+            jira_date = today.strftime('%d/%m/%Y')
 
             # format disk usage for jira issue description
             init_total = round(init_usage[0] / 1024 / 1024 / 1024, 2)
             init_used = round(init_usage[1] / 1024 / 1024 / 1024, 2)
             init_percent = round((init_usage[1] / init_usage[0]) * 100, 2)
 
-            p_total = round(p_usage[0] / 1024 / 1024 / 1024, 2)
-            p_used = round(p_usage[1] / 1024 / 1024 / 1024, 2)
-            p_percent = round((p_usage[1] / p_usage[0]) * 100, 2)
+            p_total = round(post_usage[0] / 1024 / 1024 / 1024, 2)
+            p_used = round(post_usage[1] / 1024 / 1024 / 1024, 2)
+            p_percent = round((post_usage[1] / post_usage[0]) * 100, 2)
 
             # format deleted run for issue description
-            for k, v in tmp_delete.items():
-                seq = v['seq']
-                status = v['status']
-
-                j_data.append(
-                    f'{k} in /genetics/{seq}'
-                )
+            jira_data = [
+                '{} in /genetics/{}'.format(k, v['seq'])
+                for k, v in tmp_delete.items()]
 
             # description body
-            body = '\n'.join(j_data)
+            body = '\n'.join(jira_data)
 
-            desc = f'Runs deleted on {j_date}\n'
+            desc = f'Runs deleted on {jira_date}\n'
 
             # all disk space data
             disk_usage = (
@@ -167,7 +165,7 @@ def main():
 
             log.info('Creating Jira acknowledgement issue')
             response = jira.create_issue(
-                f'{j_date} Deleted Runs In 10.252.166.184',
+                f'{jira_date} Deleted Runs In 10.252.166.184',
                 10124,
                 JIRA_PROJECT_ID,
                 JIRA_REPORTER_ID,
@@ -190,9 +188,34 @@ def main():
                 log.error(response)
                 sys.exit('END SCRIPT')
 
+    elif today.day >= 17 and today.day < 24:
+        # if today is nearing 24th
+        alert_day = get_next_month(today, 24)
+
+        # check if coming 24th falls in weekend
+        if alert_day.isoweekday() in [6, 7]:
+            # if so, get the coming Friday
+            friday = get_weekday(alert_day, 5, False)
+
+            if today == friday:
+                # send alert about deletion
+                log.info(today)
+                if runs:
+                    post_message_to_slack(
+                        'egg-logs',
+                        SLACK_TOKEN,
+                        ansible_pickle,
+                        DEBUG,
+                        usage=init_usage,
+                        today=today,
+                        jira_url=JIRA_SLACK_URL,
+                        notification=True)
+                else:
+                    log.info('NO RUNS IN MEMORY DETECTED')
+            else:
+                pass
+
     elif today.day == 24:
-        # send countdown notification on runs to be deleted
-        # roughly a week before 1st
         log.info(today)
         if runs:
             post_message_to_slack(
@@ -229,7 +252,7 @@ def main():
 
         # get project size
         run_path = f'{GENETIC_DIR}/{seq}/{project}'
-        size = get_size(run_path)
+        run_size = get_size(run_path)
 
         # get 002 proj describe data
         project_data = get_describe_data(project)
@@ -273,7 +296,7 @@ def main():
                         'duration': round(duration.days / 7, 2),
                         'old_enough': old_enough,
                         'url': f'{DX_URL}/{trimmed_id}/data',
-                        'size': size
+                        'size': run_size
                     }
 
                     log.info('{} {} ::: {} weeks PASS'.format(
@@ -305,7 +328,7 @@ def main():
                             'duration': round(duration.days / 7, 2),
                             'old_enough': old_enough,
                             'url': f'{DX_URL}/{trimmed_id}/data',
-                            'size': size
+                            'size': run_size
                         }
 
                     continue
@@ -334,7 +357,7 @@ def main():
                         'duration': round(duration.days / 7, 2),
                         'old_enough': old_enough,
                         'url': f'{DX_URL}/{trimmed_id}/data',
-                        'size': size
+                        'size': run_size
                     }
 
                 continue

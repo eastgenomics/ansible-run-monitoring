@@ -1,9 +1,3 @@
-"""
-Jira Class as wrapper for Jira API request
-EBH -
-EBHD 10042
-"""
-
 import json
 import requests
 from requests.adapters import HTTPAdapter
@@ -28,13 +22,12 @@ class Reporter(object):
     Reporter object for Jira reporter
     """
     def __init__(self, data):
-        if data is not None:
-            self.id = data.get('accountId', None)
-            self.account_type = data.get('accountType', None)
-            self.active = data.get('active', None)
-            self. name = data.get('displayName', None)
-            self.email = data.get('emailAddress', None)
-            self.time = data.get('timeZone', None)
+        self.id = data.get('accountId', None)
+        self.account_type = data.get('accountType', None)
+        self.active = data.get('active', None)
+        self. name = data.get('displayName', None)
+        self.email = data.get('emailAddress', None)
+        self.time = data.get('timeZone', None)
 
 
 class Creator(object):

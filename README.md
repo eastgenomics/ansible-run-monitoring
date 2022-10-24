@@ -1,14 +1,14 @@
 # Ansible Run Monitoring
 
-Script to automate deletion of qualified runs in `/genetics` and notifying of stale runs. An alert will be sent to Slack before the deletion.
+Script to automate deletion of local sequencing data from the server and notifying of stale runs (runs older than 1 day without associated Jira ticket or runs older than 30 days without Jira status `ALL SAMPLES RELEASED`). An alert will be sent to Slack before the deletion.
 
 ## Script Workflow
 
 - Script will be scheduled to run every day by cron
 - Compile list of runs in `/genetics`
-- To qualify for automated deletion, each runs need to fulfill four main criterias: 
+- To qualify for automated deletion, each runs need to fulfill four main criteria: 
   - 002 project on DNANexus
-  - Runs on `staging52`
+  - Runs on uploaded to `001_Staging_Area52` DNAnexus project
   - Created `ANSIBLE_WEEK` ago
   - have Jira ticket with status `ALL SAMPLES RELEASED`
   - assay in `ANSIBLE_JIRA_ASSAY`
@@ -31,7 +31,7 @@ docker run --env-file <path to config> -v /genetics:/genetics -v /var/log/dx-str
 - `ANSIBLE_SEQ`: sequencing machine, **use comma to include more machines** (e.g. a01295a, a01303b, a1405)
 - `HTTP_PROXY`: http proxy
 - `HTTPS_PROXY`: https proxy
-- `ANSIBLE_WEEK `: number of week old (e.g. 6)
+- `ANSIBLE_WEEK `: how long before run is qualified as old e.g. 6 
 - `DNANEXUS_TOKEN `: auth token for dxpy login
 - `ANSIBLE_PICKLE_PATH`: directory to save memory e.g /log/monitoring
 - `ANSIBLE_JIRA_ASSAY`: e.g. TWE,MYE **use comma to include multiple assays**
@@ -42,7 +42,7 @@ docker run --env-file <path to config> -v /genetics:/genetics -v /var/log/dx-str
 - `SLACK_NOTIFY_JIRA_URL`: Jira helpdesk queue url (for direct link to Jira sample ticket)
 - `SLACK_TOKEN`: slack auth token
 - `JIRA_PROJECT_ID`: Jira project id (helpdesk id e.g. EBHD, EBH)
-- `JIRA_REPORTER_ID`: Jira reporter id for raising issue
+- `JIRA_REPORTER_ID`: Jira reporter id for raising Jira issue
 
 ## Logging
 
