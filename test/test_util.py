@@ -222,6 +222,7 @@ class TestStringMethods(unittest.TestCase):
         token = os.environ['JIRA_TOKEN']
         email = os.environ['JIRA_EMAIL']
         url = os.environ['JIRA_API_URL']
+        SERVER_TESTING = os.environ.get('ANSIBLE_TESTING', False)
 
         jira = Jira(token, email, url, True)
 
@@ -234,12 +235,15 @@ class TestStringMethods(unittest.TestCase):
         datab = jira.search_issue(
             multiple_sample, project_name=project, trimmed=True)
 
-        assay, status, key = jira.get_issue_detail(one_sample)
+        assay, status, key = jira.get_issue_detail(
+            one_sample, SERVER_TESTING)
 
-        assayb, _, keyb = jira.get_issue_detail(multiple_sample)
+        assayb, _, keyb = jira.get_issue_detail(
+            multiple_sample, SERVER_TESTING)
 
         multiple_replies_sample = '220223_A01295_0059_AH5YL5DMXY'
-        assayc, statusc, keyc = jira.get_issue_detail(multiple_replies_sample)
+        assayc, statusc, keyc = jira.get_issue_detail(
+            multiple_replies_sample, SERVER_TESTING)
 
         with self.subTest():
             self.assertTrue(
