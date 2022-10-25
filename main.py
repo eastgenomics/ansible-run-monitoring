@@ -104,7 +104,7 @@ def main():
 
                 # last check to see if status is still
                 # ALL-SAMPLES-RELEASED
-                _, status, _ = jira.get_issue_detail(run)
+                _, status, _ = jira.get_issue_detail(run, SERVER_TESTING)
 
                 seq = ansible_pickle[run]['seq']
                 key = ansible_pickle[run]['key']
@@ -311,10 +311,7 @@ def main():
         old_enough = check_age(created_date, today, ANSIBLE_WEEK)
 
         # get proj jira details
-        if not SERVER_TESTING:
-            assay, status, key = jira.get_issue_detail(project, False)
-        else:
-            assay, status, key = jira.get_issue_detail(project, True)
+        assay, status, key = jira.get_issue_detail(project, SERVER_TESTING)
 
         if project_data and uploaded:
             # found the 002 project & found in staging52
