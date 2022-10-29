@@ -63,6 +63,7 @@ def main():
 
     # get script run date
     today = datetime.today()
+    log.info(today)
 
     # read memory in /var/log/monitoring
     ansible_pickle = read_or_new_pickle(ANSIBLE_PICKLE)
@@ -216,7 +217,6 @@ def main():
                 pass
 
     elif today.day == 24:
-        log.info(today)
         if runs:
             post_message_to_slack(
                 'egg-logs',
