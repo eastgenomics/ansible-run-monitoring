@@ -215,8 +215,12 @@ def main():
                     log.info('NO RUNS IN MEMORY DETECTED')
             else:
                 pass
-
+    elif today.day == 24 and today.isoweekday in [6, 7]:
+        # today is 24th but is a weekend, don't send alert
+        # because we have already sent one on Friday
+        pass
     elif today.day == 24:
+        # today is the 24th and not a weekend
         if runs:
             post_message_to_slack(
                 'egg-logs',
@@ -373,11 +377,10 @@ def main():
     log.info(f'Stale runs to check: {len(temp_stale)}')
     log.info(f'{len(temp_pickle.keys())} marked for deletion')
 
-    if today.day < 23:
-        # we send countdown / alert on either
-        # 24th or 25th depending on cron schedule
-        # as long as it's before 23rd, we save to memory
-        # on run which qualify for deletion
+    if today.day < 24:
+        # we send countdown / alert on 24th
+        # so anything after 24th shouldn't be considered
+        # for deletion until the next cycle
 
         log.info('Writing into pickle file')
         with open(ANSIBLE_PICKLE, 'wb') as f:

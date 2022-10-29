@@ -180,6 +180,9 @@ class Jira():
                 headers=self.headers,
                 auth=self.auth)
 
+            if not response.ok:
+                break
+
             issues += response.json()['values']
             count += 50
 
