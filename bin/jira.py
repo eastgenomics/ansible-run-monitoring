@@ -9,6 +9,7 @@ import requests
 from requests.adapters import HTTPAdapter
 from requests.auth import HTTPBasicAuth
 from urllib3.util import Retry
+from typing import Union
 
 
 class Assignee(object):
@@ -130,10 +131,11 @@ class Jira():
     retries = Retry(total=5, backoff_factor=10, method_whitelist=['POST'])
     http.mount("https://", HTTPAdapter(max_retries=retries))
 
-    def __init__(self, token, email, api_url):
+    def __init__(self, token, email, api_url, debug):
         self.auth = HTTPBasicAuth(email, token)
         self.api_url = api_url
         self.url = f'{api_url}/servicedeskapi/servicedesk'
+        self.debug = debug
 
     def get_all_service_desk(self):
         """
@@ -164,6 +166,9 @@ class Jira():
             trimmed: bool = False):
         """
         Get all issues of a queue in specified service desk
+        Inputs:
+            servicedesk_id: service desk id
+            queue_id: queue id (e.g. All Open or New Sequencing)
         """
         url = f"{self.url}/{servicedesk_id}/queue/{queue_id}/issue"
         response = self.http.get(
@@ -190,11 +195,13 @@ class Jira():
 
     def get_issue(
             self,
-            issue_id: int,
+            issue_id: Union[int, str],
             trimmed: bool = False):
         """
         Get details of specified issue
         If trimmed: return a pre-processed issue json()
+        Input:
+            issue_id: issue id or key
         """
         url = f"{self.api_url}/api/3/issue/{issue_id}"
         response = self.http.get(
@@ -202,7 +209,7 @@ class Jira():
             headers=self.headers,
             auth=self.auth)
         if trimmed:
-            return Issue(response.json())
+            return Issue(response.json()).__dict__
         return response.json()
 
     def search_issue(
@@ -222,6 +229,8 @@ class Jira():
 
         url = f"{self.api_url}/api/3/search"
         query_cmd = f'project={project_name} and summary ~ \"{sequence_name}\"'
+
+        # filter by specific status
         if status:
             status_options = ','.join('"{0}"'.format(w) for w in status)
             query_cmd += f' and status IN ({status_options})'
@@ -271,8 +280,10 @@ class Jira():
                         print('no ticket fits assay options')
                         return {'total': 0}
         else:
+            # if assay not specified
             if trimmed:
                 if len(res['issues']) > 1:
+                    # if multiple issues
                     issues = []
                     for issue in res['issues']:
                         issues.append(Issue(issue).__dict__)
@@ -323,6 +334,9 @@ class Jira():
             status = 'No Jira ticket found'
             key = None
         elif jira_data['total'] > 1:
+            # if there's more than one issue with
+            # the same name
+            # we remove those that start with 'RE' (replies)
             issues = jira_data['issues']
 
             the_issue = [
@@ -337,6 +351,7 @@ class Jira():
                 status = 'More than 1 Jira ticket detected'
                 key = None
         else:
+            # found only one Jira issue
             assay = jira_data['issues']['assay']
             status = jira_data['issues']['status']['name']
             key = jira_data['issues']['key']
@@ -346,13 +361,21 @@ class Jira():
     def create_issue(
             self,
             summary: str,
-            issue_type: str,
-            project_id: str,
+            issue_id: int,
+            project_id: int,
             reporter_id: str,
-            priority: str):
+            priority_id: int,
+            desc: str,):
 
         """
         Create a ticket issue
+        Inputs:
+            summary: issue title
+            issue_id: id of issue type
+            project_id: id of project
+            reporter_id: id of reporter
+            desc: issue description
+            priority_id: id of priority (e.g. 3)
         """
         url = f"{self.api_url}/api/3/issue"
 
@@ -361,21 +384,39 @@ class Jira():
             "Content-Type": "application/json"
         }
 
+        if self.debug:
+            project_id = 10042
+
         payload = json.dumps({
             "fields": {
                 "summary": summary,
                 "issuetype": {
-                    "id": issue_type
+                    "id": str(issue_id)
                 },
                 "project": {
-                    "id": project_id
+                    "id": str(project_id)
                 },
                 "reporter": {
                     "id": reporter_id
                 },
                 "priority": {
-                    "id": priority
+                    "id": str(priority_id)
                 },
+                "description": {
+                    "type": "doc",
+                    "version": 1,
+                    "content": [
+                        {
+                            "type": "paragraph",
+                            "content": [
+                                {
+                                    "text": desc,
+                                    "type": "text"
+                                }
+                            ]
+                        }
+                    ]
+                }
             }
         })
 
