@@ -143,7 +143,7 @@ def post_message_to_slack(
         else:
             pretext = (
                 ':warning: ansible-run-monitoring: '
-                f'{data_count} runs that *WILL BE DELETED* on {today}\n'
+                f'{data_count} runs that *WILL BE DELETED* on *{today}*\n'
                 f'genetics usage: {gused}/{gtotal}GB | {gpercent}%'
 
             )

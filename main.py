@@ -15,15 +15,15 @@ def main():
 
     # importing env variables
     try:
+        SLACK_TOKEN = os.environ['SLACK_TOKEN']
+        DEBUG = os.environ.get('ANSIBLE_DEBUG', False)
+
         GENETIC_DIR = os.environ['ANSIBLE_GENETICDIR']
         LOGS_DIR = os.environ['ANSIBLE_LOGSDIR']
         ANSIBLE_WEEK = int(os.environ['ANSIBLE_WEEK'])
         PICKLE_PATH = os.environ['ANSIBLE_PICKLE_PATH']
 
-        DEBUG = os.environ.get('ANSIBLE_DEBUG', False)
-
         DNANEXUS_TOKEN = os.environ["DNANEXUS_TOKEN"]
-        SLACK_TOKEN = os.environ['SLACK_TOKEN']
 
         JIRA_TOKEN = os.environ['JIRA_TOKEN']
         JIRA_EMAIL = os.environ['JIRA_EMAIL']
@@ -37,6 +37,15 @@ def main():
         SEQS = [x.strip() for x in os.environ['ANSIBLE_SEQ'].split(',')]
     except KeyError as e:
         log.error(f'Failed to import env {e}')
+
+        message = (
+            ':warning:'
+            f"ANSIBLE-MONITORING: Failed to import env {e}")
+        post_message_to_slack(
+            channel='egg-alerts',
+            token=SLACK_TOKEN,
+            data=message,
+            debug=DEBUG)
         sys.exit('END SCRIPT')
 
     # log debug status
@@ -49,7 +58,9 @@ def main():
 
     # dxpy login
     if not dx_login(DNANEXUS_TOKEN):
-        message = "ANSIBLE-MONITORING: ERROR with dxpy login!"
+        message = (
+            ':warning:'
+            "ANSIBLE-MONITORING: ERROR with dxpy login!")
 
         post_message_to_slack(
             channel='egg-alerts',
@@ -60,7 +71,9 @@ def main():
 
     # check if /genetics & /logs/dx-streaming-upload exist
     if not directory_check([GENETIC_DIR, LOGS_DIR]):
-        message = f"ANSIBLE-MONITORING: ERROR with missing directory!"
+        message = (
+            ':warning:'
+            f"ANSIBLE-MONITORING: ERROR with missing directory!")
 
         post_message_to_slack(
             channel='egg-alerts',
@@ -125,7 +138,8 @@ def main():
                     clear_memory(ANSIBLE_PICKLE)
 
                     msg = (
-                        f"ANSIBLE-MONITORING: ERROR with deleting {run}."
+                        ':warning:'
+                        f"ANSIBLE-MONITORING: ERROR with deleting `{run}`."
                         " Stopping further automatic deletion."
                         f"\n```{e}```"
                     )
@@ -201,7 +215,9 @@ def main():
                 # if jira ticket creation issue
                 # send msg to Slack - stop script
                 err_msg = response['errors']
-                msg = "ANSIBLE-MONITORING: ERROR with creating Jira ticket!"
+                msg = (
+                    ':warning:'
+                    "ANSIBLE-MONITORING: ERROR with creating Jira ticket!")
                 msg += f'\n`{err_msg}`'
 
                 post_message_to_slack(
