@@ -150,24 +150,22 @@ def post_message_to_slack(
 
         today = get_next_month(today).strftime("%d %b %Y")
 
-        count = len(message.keys())
-
         if deleted:
             pretext = (
                 ':broom: ansible-run-monitoring: '
-                f'{count} runs *HAVE BEEN DELETED*\n'
+                f'{data_count} runs *HAVE BEEN DELETED*\n'
                 f'genetics usage: {gused}/{gtotal}GB | {gpercent}%'
             )
         elif stale:
             pretext = (
                 ':warning: ansible-run-monitoring: '
-                f'{count} stale runs\n'
+                f'{data_count} stale runs\n'
                 f'genetics usage: {gused}/{gtotal}GB | {gpercent}%'
             )
         else:
             pretext = (
                 ':warning: ansible-run-monitoring: '
-                f'{count} runs that *WILL BE DELETED* on {today}\n'
+                f'{data_count} runs that *WILL BE DELETED* on {today}\n'
                 f'genetics usage: {gused}/{gtotal}GB | {gpercent}%'
 
             )
