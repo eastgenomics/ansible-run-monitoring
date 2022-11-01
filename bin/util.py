@@ -53,7 +53,7 @@ def post_message_to_slack(
         # complicated msg sending where
         # msg is a dict which need to be compiled
         # into multiple Slack msg (if too long)
-        data = []
+        final_msg = []
         data_count = 0
 
         for run, body in data.items():
@@ -79,25 +79,25 @@ def post_message_to_slack(
                 if duration.days > 1 and key is None:
                     # if there's no jira ticket
                     # and runs have been more than 1 day
-                    data.append(
+                    final_msg.append(
                         f'`/genetics/{seq}/{run}`\n'
                         'Run is missing associated Jira ticket')
-                    data.append(
+                    final_msg.append(
                         f'><{url}|DNANexus Link>\n'
-                        f'>{round(duration.days / 7, 2)} weeks '
+                        f'>{duration.days // 7} weeks '
                         f'{duration.days % 7} days ago\n'
                         )
                     data_count += 1
                 elif duration.days > 30 and status != 'ALL SAMPLES RELEASED':
                     # if ticket is old
                     # and status still not released
-                    data.append(
+                    final_msg.append(
                         f'`/genetics/{seq}/{run}`\n'
                         'Run still not released '
                         f'<{jira_url}{key}|{status}>')
-                    data.append(
+                    final_msg.append(
                         f'><{url}|DNANexus Link>\n'
-                        f'>{round(duration.days / 7, 2)} weeks '
+                        f'>{duration.days // 7} weeks '
                         f'{duration.days % 7} days ago\n'
                         )
                     data_count += 1
@@ -113,24 +113,24 @@ def post_message_to_slack(
                 created_dt = dt.datetime.strptime(created_date, '%Y-%m-%d')
                 duration = today - created_dt
 
-                data.append(
+                final_msg.append(
                     f'`/genetics/{seq}/{run}`\n'
                     f'<{jira_url}{key}|{status}> | {assay} | ~{size}GB')
-                data.append(
+                final_msg.append(
                     f'><{url}|DNANexus Link>\n'
                     f'>Created Date: {created_date}\n'
-                    f'>{round(duration.days / 7, 2)} weeks '
+                    f'>{duration.days // 7} weeks '
                     f'{duration.days % 7} days ago\n'
                     )
                 data_count += 1
 
-        if not data:
+        if not final_msg:
             log.info('No data to post to Slack')
             return None
 
         log.info(f'Posting {data_count} runs')
 
-        text_data = '\n'.join(data)
+        text_data = '\n'.join(final_msg)
 
         today = get_next_month(today, 1).strftime("%d %b %Y")
 
@@ -173,16 +173,16 @@ def post_message_to_slack(
             start = 0
             end = 1
 
-            for index in range(1, len(data) + 1):
-                chunk = data[start:end]
+            for index in range(1, len(final_msg) + 1):
+                chunk = final_msg[start:end]
 
                 if len('\n'.join(chunk)) < 7700:
                     end = index
 
-                    if end == len(data):
-                        chunks.append(data[start:end])
+                    if end == len(final_msg):
+                        chunks.append(final_msg[start:end])
                 else:
-                    chunks.append(data[start:end-1])
+                    chunks.append(final_msg[start:end-1])
                     start = end - 1
 
             log.info(f'Sending data in {len(chunks)} chunks')

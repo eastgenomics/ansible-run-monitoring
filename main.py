@@ -126,7 +126,7 @@ def main():
 
                     msg = (
                         f"ANSIBLE-MONITORING: ERROR with deleting {run}."
-                        "Stopping further automatic deletion."
+                        " Stopping further automatic deletion."
                         f"\n```{e}```"
                     )
 

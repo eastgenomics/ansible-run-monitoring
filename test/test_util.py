@@ -252,7 +252,7 @@ class TestStringMethods(unittest.TestCase):
 
             self.assertEqual(
                 [assay, status.upper(), key],
-                ['MYE', 'NEW', 'EBHD-480'],
+                ['MYE', 'NEW', 'EBHD-587'],
                 'search_issue return faulty for single ticket')
 
             self.assertEqual(
@@ -265,7 +265,7 @@ class TestStringMethods(unittest.TestCase):
 
             self.assertEqual(
                 [assayc, statusc.upper(), keyc],
-                ['MYE', 'NEW', 'EBHD-492'],
+                ['MYE', 'NEW', 'EBHD-588'],
                 'search_issue return faulty for RE: ticket')
 
 
