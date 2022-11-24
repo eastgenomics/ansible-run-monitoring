@@ -31,8 +31,6 @@ def post_message_to_slack(
         today: dt.datetime = None,
         jira_url: str = None,
         notification: bool = False,
-        deleted: bool = False,
-        tar_bool: bool = False,
         stale: bool = False) -> None:
     """
     Function to send Slack notification
@@ -45,8 +43,6 @@ def post_message_to_slack(
         today: datetime
         jira_url: jira_slack_notify url
         notification: True if complicated msg
-        deleted: True if sending about deleted
-        tar_bool: True when sending attached duplicate.txt
         stale: True when sending stale run
     """
 
@@ -78,13 +74,7 @@ def post_message_to_slack(
             gpercent = round((usage[1] / usage[0]) * 100, 2)
 
             # format message depending on msg type
-            if deleted:
-                # send about deleted runs
-                data.append(
-                    f'`/genetics/{seq}/{run}`\n'
-                    f'<{jira_url}{key}|{status}> | {assay} | ~{size} GB')
-                data_count += 1
-            elif stale:
+            if stale:
                 # send about stale run
                 created_date = body['created']
                 url = body['url']
@@ -150,13 +140,7 @@ def post_message_to_slack(
 
         today = get_next_month(today).strftime("%d %b %Y")
 
-        if deleted:
-            pretext = (
-                ':broom: ansible-run-monitoring: '
-                f'{data_count} runs *HAVE BEEN DELETED*\n'
-                f'genetics usage: {gused}/{gtotal}GB | {gpercent}%'
-            )
-        elif stale:
+        if stale:
             pretext = (
                 ':warning: ansible-run-monitoring: '
                 f'{data_count} stale runs\n'
@@ -227,23 +211,6 @@ def post_message_to_slack(
                         f'Error sending POST request to channel #{channel}')
                     log.error(e)
             http.close()
-    elif tar_bool:
-        # when send_mail failed and sending attachment thru Slack
-        tar = {'file': ('duplicates.txt', open('duplicates.txt', 'rb'), 'txt')}
-        try:
-            response = http.post(
-                'https://slack.com/api/files.upload', params={
-                    'token': token,
-                    'channels': f'#{channel}',
-                    'initial_comment': message,
-                    'filename': 'duplicates.txt',
-                    'filetype': 'txt'
-                }, files=tar).json()
-            http.close()
-        except Exception as e:
-            # endpoint request fail from internal server side
-            log.error(f'Error sending POST request to channel #{channel}')
-            log.error(e)
     else:
         # simple msg sending
         try:
