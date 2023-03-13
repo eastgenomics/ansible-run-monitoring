@@ -19,11 +19,9 @@ import random
 import string
 import datetime as dt
 from dateutil.relativedelta import relativedelta
-from itertools import cycle
 import shutil
 import random
 import time
-import sys
 import argparse
 import pickle
 import collections
@@ -38,6 +36,9 @@ DEBUG = os.environ['ANSIBLE_DEBUG']
 SEQUENCERS = [seq.strip() for seq in os.environ['ANSIBLE_SEQ'].split(',')]
 
 os.environ['PYTHONUNBUFFERED'] = '1'
+
+stale_runs = []
+delete_runs = []
 
 
 def get_random_string(length: int):
@@ -95,12 +96,12 @@ jira = Jira(JIRA_TOKEN, JIRA_EMAIL, JIRA_API_URL, DEBUG)
 today = dt.datetime.today()
 
 # set modified date of mock directories to be old enough
-yesterday = today + relativedelta(days=-2)
+stale_date = today + relativedelta(days=-2)
 old_date = today + relativedelta(weeks=-ANSIBLE_WEEK)
 old_epoch = old_date.timestamp()
-yesterday_epoch = yesterday.timestamp()
+stale_epoch = stale_date.timestamp()
 
-print(yesterday, old_date)
+print(stale_date, old_date)
 
 with open('/home/test/runs.txt') as f:
     lines = f.readlines()
@@ -109,6 +110,9 @@ with open('/home/test/runs.txt') as f:
 
 memory = read_or_new_pickle('/log/monitoring/ansible_dict.test.pickle')
 if memory:
+    print('memory detected in pickle file')
+    print('/test/log/monitoring/ansible_dict.test.pickle')
+    print('skipping mock.py and running main.py')
     lines = []
 
 for seq in SEQUENCERS:
@@ -134,7 +138,7 @@ stale_count = 0
 
 for run in lines:
     print(f'Creating {run}')
-    # delete existing runs
+    # delete existing runs in directory
     if os.path.isdir(f'/genetics/{seq}/{run}'):
         shutil.rmtree(f'/genetics/{seq}/{run}')
 
@@ -143,6 +147,7 @@ for run in lines:
     # make it a nested directory
     os.makedirs(f'/genetics/{seq}/{run}/nested', exist_ok=True)
 
+    # generate file within the directory, varying filesize
     with open(f'/genetics/{seq}/{run}/{get_random_string(5)}.txt', 'w') as f:
         d = 3
         n = random.randint(10000, 550000)
@@ -155,7 +160,7 @@ for run in lines:
     with open(f'/genetics/{seq}/{run}/nested/run.{run}.all.log', 'w') as f:
         f.write('This is just a random file in a nested directory')
 
-    issues = jira.search_issue(run, project_name='EBHD', trimmed=True)
+    issues = jira.search_issue(run, project_name='EBHD')
     total = issues['total']
 
     if total != 0:
@@ -166,11 +171,12 @@ for run in lines:
                 id = issue['id']
                 jira.delete_issue(id)
         else:
-            jira.delete_issue(issues['issues']['id'])
+            jira.delete_issue(issues['issues'][0]['id'])
 
     option = random.choice([1, 2, 3])
 
     # this does not guarantee that a 002 project is on DNANexus
+    # randomly, we generate either stale Jira ticket or PASS ticket
     if option == 1:
         # stale run
         # created date > 30 and still not yet sample released
@@ -185,7 +191,7 @@ for run in lines:
             10042,  # EBHD id
             '61703e0925f313007059993f', 3, '', True)
 
-        print(f'{run} -> not yet released')
+        stale_runs.append(f'{run} -> not yet released')
         stale_count += 1
 
     elif option == 2:
@@ -194,9 +200,9 @@ for run in lines:
 
         # change modified time
         os.utime(
-            f'/genetics/{seq}/{run}', (yesterday_epoch, yesterday_epoch))
+            f'/genetics/{seq}/{run}', (stale_epoch, stale_epoch))
 
-        print(f'{run} -> no associated jira ticket')
+        stale_runs.append(f'{run} -> no associated jira ticket')
         stale_count += 1
     else:
         # old enough
@@ -219,7 +225,7 @@ for run in lines:
 
         delete_count += 1
 
-        print(f'{run} -> pass')
+        delete_runs.append(f'{run} -> pass')
 
 print(f'Runs marked for deletion: {delete_count}')
 print(f'Runs marked as stale: {stale_count}')
@@ -231,3 +237,24 @@ for d in os.listdir(f'/genetics/{seq}'):
     with open(
             f'/log/dx-streaming-upload/{seq}/run.{d}.lane.all.log', 'w') as f:
         f.write('This is a log file')
+
+# generate a report txt to show mock run sample that PASS and fit the criteria
+# for deletion in the next run
+with open(f'/log/monitoring/{today}-report.txt', 'a') as f:
+    f.write(f'today: {today}\n')
+    f.write(f'stale cutt-off: {stale_date}\n')
+    f.write(f'old enough cut-off: {old_date}\n')
+
+    for row in sorted(stale_runs):
+        f.write(f'{row}\n')
+
+    f.write('\n')
+
+    for row in sorted(delete_runs):
+        f.write(f'{row}\n')
+
+    f.write('\n')
+
+    f.write('**run the script with datetime set to 1st of any month\n')
+    f.write('we should expect those runs above that PASS be deleted\n')
+    f.write('and acknowledgement Jira ticket should show up on EBHD\n')
