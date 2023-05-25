@@ -5,7 +5,6 @@ import json
 import os
 import pickle
 import requests
-import shutil
 
 from requests.adapters import HTTPAdapter
 from urllib3.util import Retry
@@ -17,15 +16,16 @@ log = get_logger("util log")
 
 
 def post_message_to_slack(
-        channel: str,
-        token: str,
-        data,
-        debug: bool,
-        usage: tuple = (0, 0, 0),
-        today: dt.datetime = None,
-        jira_url: str = None,
-        notification: bool = False,
-        stale: bool = False) -> None:
+    channel: str,
+    token: str,
+    data,
+    debug: bool,
+    usage: tuple = (0, 0, 0),
+    today: dt.datetime = None,
+    jira_url: str = None,
+    notification: bool = False,
+    stale: bool = False,
+) -> None:
     """
     Function to send Slack notification
     Inputs:
@@ -40,14 +40,14 @@ def post_message_to_slack(
         stale: True when sending stale run
     """
 
-    log.info(f'Sending POST request to channel: #{channel}')
+    log.info(f"Sending POST request to channel: #{channel}")
 
     http = requests.Session()
-    retries = Retry(total=5, backoff_factor=10, method_whitelist=['POST'])
+    retries = Retry(total=5, backoff_factor=10, method_whitelist=["POST"])
     http.mount("https://", HTTPAdapter(max_retries=retries))
 
     if debug:
-        channel = 'egg-test'
+        channel = "egg-test"
 
     if notification:
         # complicated msg sending where
@@ -57,12 +57,11 @@ def post_message_to_slack(
         data_count = 0
 
         for run, body in data.items():
-
-            seq = body['seq']
-            key = body['key']
-            status = body['status']
-            assay = body['assay']
-            size = body['size']
+            seq = body["seq"]
+            key = body["key"]
+            status = body["status"]
+            assay = body["assay"]
+            size = body["size"]
             gtotal = round(usage[0] / 1024 / 1024 / 1024, 2)
             gused = round(usage[1] / 1024 / 1024 / 1024, 2)
             gpercent = round((usage[1] / usage[0]) * 100, 2)
@@ -70,37 +69,41 @@ def post_message_to_slack(
             # format message depending on msg type
             if stale:
                 # send about stale run
-                created_date = body['created']
-                url = body['url']
+                created_date = body["created"]
+                url = body["url"]
 
-                created_dt = dt.datetime.strptime(created_date, '%Y-%m-%d')
+                created_dt = dt.datetime.strptime(created_date, "%Y-%m-%d")
                 duration = today - created_dt
 
                 if duration.days > 1 and key is None:
                     # if there's no jira ticket
                     # and runs have been more than 1 day
                     final_msg.append(
-                        f'`/genetics/{seq}/{run}`\n'
-                        'Run is missing associated Jira ticket')
+                        f"`/genetics/{seq}/{run}`\n"
+                        "Run is missing associated Jira ticket"
+                    )
                     final_msg.append(
-                        f'><{url}|DNANexus Link>\n'
-                        f'>{duration.days // 7} weeks '
-                        f'{duration.days % 7} days ago\n'
-                        )
+                        f"><{url}|DNANexus Link>\n"
+                        f">{duration.days // 7} weeks "
+                        f"{duration.days % 7} days ago\n"
+                    )
                     data_count += 1
-                elif duration.days > 30 and \
-                        status.upper() != 'ALL SAMPLES RELEASED':
+                elif (
+                    duration.days > 30
+                    and status.upper() != "ALL SAMPLES RELEASED"
+                ):
                     # if ticket is old
                     # and status still not released
                     final_msg.append(
-                        f'`/genetics/{seq}/{run}`\n'
-                        'Run still not released '
-                        f'<{jira_url}{key}|{status}>')
+                        f"`/genetics/{seq}/{run}`\n"
+                        "Run still not released "
+                        f"<{jira_url}{key}|{status}>"
+                    )
                     final_msg.append(
-                        f'><{url}|DNANexus Link>\n'
-                        f'>{duration.days // 7} weeks '
-                        f'{duration.days % 7} days ago\n'
-                        )
+                        f"><{url}|DNANexus Link>\n"
+                        f">{duration.days // 7} weeks "
+                        f"{duration.days % 7} days ago\n"
+                    )
                     data_count += 1
                 else:
                     # runs have jira ticket
@@ -108,62 +111,64 @@ def post_message_to_slack(
                     continue
             else:
                 # remind about to-be-deleted runs
-                created_date = body['created']
-                url = body['url']
+                created_date = body["created"]
+                url = body["url"]
 
-                created_dt = dt.datetime.strptime(created_date, '%Y-%m-%d')
+                created_dt = dt.datetime.strptime(created_date, "%Y-%m-%d")
                 duration = today - created_dt
 
                 final_msg.append(
-                    f'`/genetics/{seq}/{run}`\n'
-                    f'<{jira_url}{key}|{status}> | {assay} | ~{size}GB')
+                    f"`/genetics/{seq}/{run}`\n"
+                    f"<{jira_url}{key}|{status}> | {assay} | ~{size}GB"
+                )
                 final_msg.append(
-                    f'><{url}|DNANexus Link>\n'
-                    f'>Created Date: {created_date}\n'
-                    f'>{duration.days // 7} weeks '
-                    f'{duration.days % 7} days ago\n'
-                    )
+                    f"><{url}|DNANexus Link>\n"
+                    f">Created Date: {created_date}\n"
+                    f">{duration.days // 7} weeks "
+                    f"{duration.days % 7} days ago\n"
+                )
                 data_count += 1
 
         if not final_msg:
-            log.info('No data to post to Slack')
+            log.info("No data to post to Slack")
             return None
 
-        log.info(f'Posting {data_count} runs')
+        log.info(f"Posting {data_count} runs")
 
-        text_data = '\n'.join(final_msg)
+        text_data = "\n".join(final_msg)
 
         today = get_next_month(today, 1).strftime("%d %b %Y")
 
         if stale:
             pretext = (
-                ':warning: ansible-run-monitoring: '
-                f'{data_count} stale runs\n'
-                f'genetics usage: {gused}/{gtotal}GB | {gpercent}%'
+                ":warning: ansible-run-monitoring: "
+                f"{data_count} stale runs\n"
+                f"genetics usage: {gused}/{gtotal}GB | {gpercent}%"
             )
         else:
             pretext = (
-                ':warning: ansible-run-monitoring: '
-                f'{data_count} runs that *WILL BE DELETED* on *{today}*\n'
-                f'genetics usage: {gused}/{gtotal}GB | {gpercent}%'
-
+                ":warning: ansible-run-monitoring: "
+                f"{data_count} runs that *WILL BE DELETED* on *{today}*\n"
+                f"genetics usage: {gused}/{gtotal}GB | {gpercent}%"
             )
 
         # number above 7,700 seems to get weird truncation
         if len(text_data) < 7700:
             try:
                 response = http.post(
-                    'https://slack.com/api/chat.postMessage', {
-                        'token': token,
-                        'channel': f'#{channel}',
-                        'attachments': json.dumps([{
-                            "pretext": pretext,
-                            "text": text_data}])
-                    }).json()
+                    "https://slack.com/api/chat.postMessage",
+                    {
+                        "token": token,
+                        "channel": f"#{channel}",
+                        "attachments": json.dumps(
+                            [{"pretext": pretext, "text": text_data}]
+                        ),
+                    },
+                ).json()
                 http.close()
             except Exception as e:
                 # endpoint request fail from internal server side
-                log.error(f'Error sending POST request to channel #{channel}')
+                log.error(f"Error sending POST request to channel #{channel}")
                 log.error(e)
         else:
             # chunk data based on its length after '\n'.join()
@@ -177,61 +182,62 @@ def post_message_to_slack(
             for index in range(1, len(final_msg) + 1):
                 chunk = final_msg[start:end]
 
-                if len('\n'.join(chunk)) < 7700:
+                if len("\n".join(chunk)) < 7700:
                     end = index
 
                     if end == len(final_msg):
                         chunks.append(final_msg[start:end])
                 else:
-                    chunks.append(final_msg[start:end-1])
+                    chunks.append(final_msg[start : end - 1])
                     start = end - 1
 
-            log.info(f'Sending data in {len(chunks)} chunks')
+            log.info(f"Sending data in {len(chunks)} chunks")
 
             for chunk in chunks:
-                text_data = '\n'.join(chunk)
+                text_data = "\n".join(chunk)
 
                 try:
                     response = http.post(
-                        'https://slack.com/api/chat.postMessage', {
-                            'token': token,
-                            'channel': f'#{channel}',
-                            'attachments': json.dumps([{
-                                "pretext": pretext,
-                                "text": text_data}])
-                        }).json()
+                        "https://slack.com/api/chat.postMessage",
+                        {
+                            "token": token,
+                            "channel": f"#{channel}",
+                            "attachments": json.dumps(
+                                [{"pretext": pretext, "text": text_data}]
+                            ),
+                        },
+                    ).json()
                 except Exception as e:
                     # endpoint request fail from internal server side
                     log.error(
-                        f'Error sending POST request to channel #{channel}')
+                        f"Error sending POST request to channel #{channel}"
+                    )
                     log.error(e)
             http.close()
     else:
         # simple msg sending
         try:
-            response = http.post('https://slack.com/api/chat.postMessage', {
-                'token': token,
-                'channel': f'#{channel}',
-                'text': data
-            }).json()
+            response = http.post(
+                "https://slack.com/api/chat.postMessage",
+                {"token": token, "channel": f"#{channel}", "text": data},
+            ).json()
 
             http.close()
 
         except Exception as e:
             # endpoint request fail from internal server side
-            log.error(f'Error sending POST request to channel #{channel}')
+            log.error(f"Error sending POST request to channel #{channel}")
             log.error(e)
 
-    if response['ok']:
-        log.info(f'POST request to channel #{channel} successful')
+    if response["ok"]:
+        log.info(f"POST request to channel #{channel} successful")
     else:
         # slack api request failed
-        error_code = response['error']
+        error_code = response["error"]
         log.error(error_code)
 
 
 def directory_check(directories: list) -> bool:
-
     """
     Function to check if directory exist
     Mainly to check if /genetic and /var/log/monitoring exist
@@ -244,14 +250,13 @@ def directory_check(directories: list) -> bool:
         if os.path.isdir(dir):
             continue
         else:
-            log.error(f'{dir} not found')
+            log.error(f"{dir} not found")
             return False
 
     return True
 
 
 def dx_login(token: str) -> bool:
-
     """
     Function to check dxpy login
     Input: dxpy token
@@ -261,7 +266,7 @@ def dx_login(token: str) -> bool:
     try:
         DX_SECURITY_CONTEXT = {
             "auth_token_type": "Bearer",
-            "auth_token": str(token)
+            "auth_token": str(token),
         }
 
         dx.set_security_context(DX_SECURITY_CONTEXT)
@@ -276,7 +281,6 @@ def dx_login(token: str) -> bool:
 
 
 def check_project_directory(directory: str) -> bool:
-
     """
     Function to check if project is in staging52.
     by checking if there's any file returned from that directory
@@ -290,8 +294,9 @@ def check_project_directory(directory: str) -> bool:
     # return None if no file
     dx_obj = dx.find_one_data_object(
         zero_ok=True,
-        project='project-FpVG0G84X7kzq58g19vF1YJQ',
-        folder=f'/{directory}')
+        project="project-FpVG0G84X7kzq58g19vF1YJQ",
+        folder=f"/{directory}",
+    )
 
     if dx_obj:
         return True
@@ -299,8 +304,9 @@ def check_project_directory(directory: str) -> bool:
     # check /processed directory in staging52 too
     dx_obj = dx.find_one_data_object(
         zero_ok=True,
-        project='project-FpVG0G84X7kzq58g19vF1YJQ',
-        folder=f'/processed/{directory}')
+        project="project-FpVG0G84X7kzq58g19vF1YJQ",
+        folder=f"/processed/{directory}",
+    )
 
     if dx_obj:
         return True
@@ -309,7 +315,6 @@ def check_project_directory(directory: str) -> bool:
 
 
 def get_describe_data(project: str) -> list:
-
     """
     Function to see if there is 002 project
     and its describe data
@@ -319,12 +324,11 @@ def get_describe_data(project: str) -> list:
         dict of project describe data
     """
 
-    projects = list(dx.search.find_projects(
-        name=f'002_{project}.*',
-        name_mode="regexp",
-        describe=True,
-        limit=1
-        ))
+    projects = list(
+        dx.search.find_projects(
+            name=f"002_{project}.*", name_mode="regexp", describe=True, limit=1
+        )
+    )
 
     return projects[0] if projects else []
 
@@ -339,11 +343,11 @@ def read_or_new_pickle(path: str) -> dict:
         dict: the stored pickle dict
     """
     if os.path.isfile(path):
-        with open(path, 'rb') as f:
+        with open(path, "rb") as f:
             pickle_dict = pickle.load(f)
     else:
         pickle_dict = collections.defaultdict(dict)
-        with open(path, 'wb') as f:
+        with open(path, "wb") as f:
             pickle.dump(pickle_dict, f)
 
     return pickle_dict
@@ -390,24 +394,25 @@ def get_runs(seqs: list, gene_path: str, log_path: str):
     tmp_seq = {}
 
     for sequencer in seqs:
-        log.info(f'Loop through {sequencer} started')
+        log.info(f"Loop through {sequencer} started")
 
         # Defining gene and log directories
-        gene_dir = f'{gene_path}/{sequencer}'
-        logs_dir = f'{log_path}/{sequencer}'
+        gene_dir = f"{gene_path}/{sequencer}"
+        logs_dir = f"{log_path}/{sequencer}"
 
         # list files in directories
         genetics_num = len(os.listdir(gene_dir))
         logs_num = len(os.listdir(logs_dir))
 
-        log.info(f'{genetics_num} folders in {sequencer} detected')
-        log.info(f'{logs_num} logs in {sequencer} detected')
+        log.info(f"{genetics_num} folders in {sequencer} detected")
+        log.info(f"{logs_num} logs in {sequencer} detected")
 
         # Get all files in gene and log dir
         genetic_files = [x.strip() for x in os.listdir(gene_dir)]
         genetic_directory += genetic_files
         logs_directory += [
-            x.split('.')[1].strip() for x in os.listdir(logs_dir)]
+            x.split(".")[1].strip() for x in os.listdir(logs_dir)
+        ]
 
         for run in genetic_files:
             tmp_seq[run] = sequencer
@@ -453,8 +458,8 @@ def clear_memory(pickle_path: str) -> None:
         pickle_path: directory path to pickle
     """
 
-    log.info('Clear pickle')
-    with open(pickle_path, 'wb') as f:
+    log.info("Clear pickle")
+    with open(pickle_path, "wb") as f:
         pickle.dump(collections.defaultdict(dict), f)
 
 

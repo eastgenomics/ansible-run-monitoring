@@ -219,7 +219,7 @@ class Jira:
         """
 
         url = f"{self.api_url}/api/3/search"
-        query_cmd = f'project={project_name} and summary ~ "{sequence_name}"'
+        query_cmd = f'project = {project_name} and summary ~ "{sequence_name}"'
 
         query = {"jql": query_cmd}
         response = self.http.get(
