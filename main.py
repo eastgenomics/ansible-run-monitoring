@@ -281,7 +281,7 @@ def main():
         # because we have already sent one on Friday
         pass
     elif today.day == 24 or args.notification:
-        # today is the 24th and not a weekend
+        # today is the 24th and not a weekend or --notification tag
         if runs:
             post_message_to_slack(
                 channel="egg-logs",
@@ -296,6 +296,7 @@ def main():
         else:
             log.info("NO RUNS IN MEMORY DETECTED")
     else:
+        # today is 25th to 31th
         pass
 
     temp_pickle = collections.defaultdict(dict)
