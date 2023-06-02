@@ -12,10 +12,10 @@ import sys
 
 FORMATTER = logging.Formatter(
     "%(asctime)s:%(name)s:%(module)s:%(levelname)s:%(message)s"
-    )
+)
 LOG_FILE = "/log/monitoring/ansible-run-monitoring.log"
 
-Path('/log/monitoring').mkdir(parents=True, exist_ok=True)
+Path("/log/monitoring").mkdir(parents=True, exist_ok=True)
 Path(LOG_FILE).touch(exist_ok=True)
 
 
@@ -26,7 +26,7 @@ def get_console_handler():
 
 
 def get_file_handler():
-    file_handler = TimedRotatingFileHandler(LOG_FILE, when='midnight')
+    file_handler = TimedRotatingFileHandler(LOG_FILE, when="midnight")
     file_handler.setFormatter(FORMATTER)
     return file_handler
 
