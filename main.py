@@ -249,16 +249,16 @@ def main():
                 log.error(response)
                 sys.exit("END SCRIPT")
 
-    elif today.day >= 17 and today.day < 24:
+    elif (today.day >= 17 and today.day < 24) or args.notification:
         # if today is nearing 24th
         alert_day = get_next_month(today, 24)
 
-        # check if coming 24th falls in weekend
-        if alert_day.isoweekday() in [6, 7]:
+        # check if alert day falls on weekend
+        if alert_day.isoweekday() in [6, 7] or args.notification:
             # if so, get the coming Friday
             friday = get_weekday(alert_day, 5, False)
 
-            if today == friday:
+            if today == friday or args.notification:
                 # send alert about deletion
                 log.info(today)
                 if runs:
