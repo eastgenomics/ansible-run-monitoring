@@ -1,4 +1,5 @@
 # Ansible Run Monitoring
+### python v3.8.17
 
 Script to automate deletion of local sequencing data from the server and notifying of stale runs (runs older than 1 day without associated Jira ticket or runs older than 30 days without Jira status `ALL SAMPLES RELEASED`). Automated deletion happens every 1st of every month. An alert will be sent on the 24th before deletion on the coming 1st. If the 24th falls on a weekend, the alert will be sent on the Friday instead.
 
@@ -21,7 +22,7 @@ Run `docker build -t <image name> .`
 
 ## Running the Container
 ```
-docker run --env-file <path to config> -v /genetics:/genetics -v /var/log/dx-streaming-upload:/log/dx-streaming-upload -v /var/log/monitoring:/log/monitoring <image name:tag>
+docker run --env-file <path to config> -v <path to /genetics>:/genetics -v <path to /var/log/dx-streaming-upload>:/log/dx-streaming-upload -v <path to /var/log/monitoring>:/log/monitoring <image name:tag>
 ```
 
 ## Config Env Variables
