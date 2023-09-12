@@ -88,10 +88,7 @@ def post_message_to_slack(
                         f"{duration.days % 7} days ago\n"
                     )
                     data_count += 1
-                elif (
-                    duration.days > 30
-                    and status.upper() != "ALL SAMPLES RELEASED"
-                ):
+                elif duration.days > 30 and status.upper() != "ALL SAMPLES RELEASED":
                     # if ticket is old
                     # and status still not released
                     final_msg.append(
@@ -119,7 +116,7 @@ def post_message_to_slack(
 
                 final_msg.append(
                     f"`/genetics/{seq}/{run}`\n"
-                    f"<{jira_url}{key}|{status}> | {assay} | ~{size}GB"
+                    f"<{jira_url}{key}|{status}> | {assay} | {size}"
                 )
                 final_msg.append(
                     f"><{url}|DNANexus Link>\n"
@@ -209,9 +206,7 @@ def post_message_to_slack(
                     ).json()
                 except Exception as e:
                     # endpoint request fail from internal server side
-                    log.error(
-                        f"Error sending POST request to channel #{channel}"
-                    )
+                    log.error(f"Error sending POST request to channel #{channel}")
                     log.error(e)
             http.close()
     else:
@@ -410,9 +405,7 @@ def get_runs(seqs: list, gene_path: str, log_path: str):
         # Get all files in gene and log dir
         genetic_files = [x.strip() for x in os.listdir(gene_dir)]
         genetic_directory += genetic_files
-        logs_directory += [
-            x.split(".")[1].strip() for x in os.listdir(logs_dir)
-        ]
+        logs_directory += [x.split(".")[1].strip() for x in os.listdir(logs_dir)]
 
         for run in genetic_files:
             tmp_seq[run] = sequencer
@@ -463,14 +456,32 @@ def clear_memory(pickle_path: str) -> None:
         pickle.dump(collections.defaultdict(dict), f)
 
 
-def get_size(path: str) -> float:
+def sizeof_fmt(num: int, suffix="B") -> str:
+    """
+    Function to turn bytes to human readable file size format
+    Taken from https://stackoverflow.com/questions/1094841/get-human-readable-version-of-file-size
+    Input:
+        num: bytes
+        suffix: default B, (optional)
+
+    Return: file size in human-readable format
+    """
+
+    for unit in ["", "k", "M", "G", "T", "P", "E", "Z"]:
+        if abs(num) < 1024.0:
+            return f"{num:3.1f}{unit}{suffix}"
+        num /= 1024.0
+    return f"{num:.1f}Yi{suffix}"
+
+
+def get_size(path: str) -> int:
     """
     Function to get size of directory
     Taken from https://note.nkmk.me/en/
     Input:
         path: directory path
 
-    Return: bytes -> GB
+    Return: filesize in bytes
     """
     total = 0
     with os.scandir(path) as it:
@@ -479,4 +490,4 @@ def get_size(path: str) -> float:
                 total += entry.stat().st_size
             elif entry.is_dir():
                 total += get_size(entry.path)
-    return round(total / 1024 / 1024 / 1024, 2)
+    return total

@@ -21,6 +21,7 @@ from bin.util import (
     get_date,
     get_duration,
     get_runs,
+    sizeof_fmt,
 )
 
 from bin.helper import get_logger
@@ -54,9 +55,7 @@ def main():
 
         JIRA_TOKEN = os.environ["JIRA_TOKEN"]
         JIRA_EMAIL = os.environ["JIRA_EMAIL"]
-        JIRA_ASSAY = [
-            a.strip() for a in os.environ["ANSIBLE_JIRA_ASSAY"].split(",")
-        ]
+        JIRA_ASSAY = [a.strip() for a in os.environ["ANSIBLE_JIRA_ASSAY"].split(",")]
         JIRA_API_URL = os.environ["JIRA_API_URL"]
         JIRA_SLACK_URL = os.environ["SLACK_NOTIFY_JIRA_URL"]
         JIRA_PROJECT_ID = os.environ["JIRA_PROJECT_ID"]
@@ -188,8 +187,7 @@ def main():
 
             # format deleted run for issue description
             jira_data = [
-                "{} in /genetics/{}".format(k, v["seq"])
-                for k, v in tmp_delete.items()
+                "{} in /genetics/{}".format(k, v["seq"]) for k, v in tmp_delete.items()
             ]
 
             # description body
@@ -212,9 +210,7 @@ def main():
             # helpdesk 10042 for debug 10040 for prod
 
             log.info("Creating Jira acknowledgement issue")
-            issue_title = (
-                f"{jira_date} Automated deletion of runs from ansible server"
-            )
+            issue_title = f"{jira_date} Automated deletion of runs from ansible server"
             response = jira.create_issue(
                 summary=issue_title,
                 issue_id=10124,
@@ -233,10 +229,7 @@ def main():
                 # if jira ticket creation issue
                 # send msg to Slack - stop script
                 err_msg = response["errors"]
-                msg = (
-                    ":warning:"
-                    "ANSIBLE-MONITORING: ERROR with creating Jira ticket!"
-                )
+                msg = ":warning:" "ANSIBLE-MONITORING: ERROR with creating Jira ticket!"
                 msg += f"\n`{err_msg}`"
 
                 post_message_to_slack(
@@ -302,9 +295,7 @@ def main():
     temp_pickle = collections.defaultdict(dict)
     temp_stale = collections.defaultdict(dict)
 
-    genetic_directory, logs_directory, tmp_seq = get_runs(
-        SEQS, GENETIC_DIR, LOGS_DIR
-    )
+    genetic_directory, logs_directory, tmp_seq = get_runs(SEQS, GENETIC_DIR, LOGS_DIR)
 
     # Get the duplicates between two directories /genetics & /var/log/
     temp_duplicates = set(genetic_directory) & set(logs_directory)
@@ -321,7 +312,7 @@ def main():
 
         # get project size
         run_path = f"{GENETIC_DIR}/{seq}/{project}"
-        run_size = get_size(run_path)
+        run_size = sizeof_fmt(get_size(run_path))
 
         # get 002 proj describe data
         project_data = get_describe_data(project)
@@ -348,10 +339,7 @@ def main():
                 # run is old enough meaning
                 # been there for more than ANSIBLE_WEEK
 
-                if (
-                    status.upper() == "ALL SAMPLES RELEASED"
-                    and assay in JIRA_ASSAY
-                ):
+                if status.upper() == "ALL SAMPLES RELEASED" and assay in JIRA_ASSAY:
                     # Jira ticket is ALL SAMPLES RELEASED
                     # and assay in listed assays
 
