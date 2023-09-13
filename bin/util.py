@@ -56,15 +56,17 @@ def post_message_to_slack(
         final_msg = []
         data_count = 0
 
+        gtotal, gused, gfree = usage
+        gpercent = round((gused / gtotal) * 100, 2)
+
+        marked_delete_size = 0
+
         for run, body in data.items():
             seq = body["seq"]
             key = body["key"]
             status = body["status"]
             assay = body["assay"]
-            size = body["size"]
-            gtotal = round(usage[0] / 1024 / 1024 / 1024, 2)
-            gused = round(usage[1] / 1024 / 1024 / 1024, 2)
-            gpercent = round((usage[1] / usage[0]) * 100, 2)
+            size: int = body["size"]
 
             # format message depending on msg type
             if stale:
@@ -116,7 +118,7 @@ def post_message_to_slack(
 
                 final_msg.append(
                     f"`/genetics/{seq}/{run}`\n"
-                    f"<{jira_url}{key}|{status}> | {assay} | {size}"
+                    f"<{jira_url}{key}|{status}> | {assay} | {sizeof_fmt(size)}"
                 )
                 final_msg.append(
                     f"><{url}|DNANexus Link>\n"
@@ -125,6 +127,7 @@ def post_message_to_slack(
                     f"{duration.days % 7} days ago\n"
                 )
                 data_count += 1
+                marked_delete_size += size
 
         if not final_msg:
             log.info("No data to post to Slack")
@@ -146,7 +149,8 @@ def post_message_to_slack(
             pretext = (
                 ":warning: ansible-run-monitoring: "
                 f"{data_count} runs that *WILL BE DELETED* on *{today}*\n"
-                f"genetics usage: {gused}/{gtotal}GB | {gpercent}%"
+                f"genetics usage: {sizeof_fmt(gused)}/{sizeof_fmt(gtotal)} | {gpercent}%\n"
+                f"estimated genetics storage after deletion: {sizeof_fmt(gused - marked_delete_size)} | {(gused - marked_delete_size) / gtotal * 100:.2f}%"
             )
 
         # number above 7,700 seems to get weird truncation

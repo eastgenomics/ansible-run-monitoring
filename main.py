@@ -21,7 +21,6 @@ from bin.util import (
     get_date,
     get_duration,
     get_runs,
-    sizeof_fmt,
 )
 
 from bin.helper import get_logger
@@ -312,7 +311,7 @@ def main():
 
         # get project size
         run_path = f"{GENETIC_DIR}/{seq}/{project}"
-        run_size = sizeof_fmt(get_size(run_path))
+        run_size = get_size(run_path)
 
         # get 002 proj describe data
         project_data = get_describe_data(project)
