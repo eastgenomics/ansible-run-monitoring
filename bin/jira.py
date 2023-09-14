@@ -171,9 +171,7 @@ class Jira:
 
         while response.json()["isLastPage"] is False:
             query_url = url + f"?start={count}"
-            response = self.http.get(
-                query_url, headers=self.headers, auth=self.auth
-            )
+            response = self.http.get(query_url, headers=self.headers, auth=self.auth)
 
             if not response.ok:
                 raise Exception(f"Response returned error {response}")
@@ -205,9 +203,7 @@ class Jira:
             return Issue(response.json()).__dict__
         return response.json()
 
-    def search_issue(
-        self, sequence_name: str, project_name: str = "EBH"
-    ) -> dict:
+    def search_issue(self, sequence_name: str, project_name: str = "EBH") -> dict:
         """
         Search issues based on sequence_name
 
@@ -272,12 +268,8 @@ class Jira:
                 if ("customfield_10010" in result["fields"]) and (
                     not result["fields"]["summary"].startswith("RE")
                 ):
-                    if (
-                        result["fields"]["customfield_10010"] is not None
-                    ) and (
-                        result["fields"]["customfield_10010"]["requestType"][
-                            "id"
-                        ]
+                    if (result["fields"]["customfield_10010"] is not None) and (
+                        result["fields"]["customfield_10010"]["requestType"]["id"]
                         == "39"
                     ):
                         filtered_issues.append(Issue(result))
@@ -346,9 +338,7 @@ class Jira:
                             "content": [
                                 {
                                     "type": "paragraph",
-                                    "content": [
-                                        {"text": desc, "type": "text"}
-                                    ],
+                                    "content": [{"text": desc, "type": "text"}],
                                 }
                             ],
                         },
@@ -371,9 +361,7 @@ class Jira:
                             "content": [
                                 {
                                     "type": "paragraph",
-                                    "content": [
-                                        {"text": desc, "type": "text"}
-                                    ],
+                                    "content": [{"text": desc, "type": "text"}],
                                 }
                             ],
                         },
@@ -381,9 +369,7 @@ class Jira:
                 }
             )
 
-        response = self.http.post(
-            url, data=payload, headers=headers, auth=self.auth
-        )
+        response = self.http.post(url, data=payload, headers=headers, auth=self.auth)
 
         return response.json()
 
@@ -400,9 +386,7 @@ class Jira:
 
         payload = json.dumps({"transition": {"id": transition_id}})
 
-        response = self.http.post(
-            url, data=payload, headers=headers, auth=self.auth
-        )
+        response = self.http.post(url, data=payload, headers=headers, auth=self.auth)
 
         if response.status_code == 204:
             return "Request successful"

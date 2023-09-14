@@ -56,15 +56,17 @@ def post_message_to_slack(
         final_msg = []
         data_count = 0
 
+        gtotal, gused, gfree = usage
+        gpercent = round((gused / gtotal) * 100, 2)
+
+        marked_delete_size = 0
+
         for run, body in data.items():
             seq = body["seq"]
             key = body["key"]
             status = body["status"]
             assay = body["assay"]
-            size = body["size"]
-            gtotal = round(usage[0] / 1024 / 1024 / 1024, 2)
-            gused = round(usage[1] / 1024 / 1024 / 1024, 2)
-            gpercent = round((usage[1] / usage[0]) * 100, 2)
+            size: int = body["size"]
 
             # format message depending on msg type
             if stale:
@@ -88,10 +90,7 @@ def post_message_to_slack(
                         f"{duration.days % 7} days ago\n"
                     )
                     data_count += 1
-                elif (
-                    duration.days > 30
-                    and status.upper() != "ALL SAMPLES RELEASED"
-                ):
+                elif duration.days > 30 and status.upper() != "ALL SAMPLES RELEASED":
                     # if ticket is old
                     # and status still not released
                     final_msg.append(
@@ -119,7 +118,7 @@ def post_message_to_slack(
 
                 final_msg.append(
                     f"`/genetics/{seq}/{run}`\n"
-                    f"<{jira_url}{key}|{status}> | {assay} | ~{size}GB"
+                    f"<{jira_url}{key}|{status}> | {assay} | {sizeof_fmt(size)}"
                 )
                 final_msg.append(
                     f"><{url}|DNANexus Link>\n"
@@ -128,6 +127,7 @@ def post_message_to_slack(
                     f"{duration.days % 7} days ago\n"
                 )
                 data_count += 1
+                marked_delete_size += size
 
         if not final_msg:
             log.info("No data to post to Slack")
@@ -149,7 +149,8 @@ def post_message_to_slack(
             pretext = (
                 ":warning: ansible-run-monitoring: "
                 f"{data_count} runs that *WILL BE DELETED* on *{today}*\n"
-                f"genetics usage: {gused}/{gtotal}GB | {gpercent}%"
+                f"genetics usage: {sizeof_fmt(gused)}/{sizeof_fmt(gtotal)} | {gpercent}%\n"
+                f"estimated genetics storage after deletion: {sizeof_fmt(gused - marked_delete_size)} | {(gused - marked_delete_size) / gtotal * 100:.2f}%"
             )
 
         # number above 7,700 seems to get weird truncation
@@ -209,9 +210,7 @@ def post_message_to_slack(
                     ).json()
                 except Exception as e:
                     # endpoint request fail from internal server side
-                    log.error(
-                        f"Error sending POST request to channel #{channel}"
-                    )
+                    log.error(f"Error sending POST request to channel #{channel}")
                     log.error(e)
             http.close()
     else:
@@ -410,9 +409,7 @@ def get_runs(seqs: list, gene_path: str, log_path: str):
         # Get all files in gene and log dir
         genetic_files = [x.strip() for x in os.listdir(gene_dir)]
         genetic_directory += genetic_files
-        logs_directory += [
-            x.split(".")[1].strip() for x in os.listdir(logs_dir)
-        ]
+        logs_directory += [x.split(".")[1].strip() for x in os.listdir(logs_dir)]
 
         for run in genetic_files:
             tmp_seq[run] = sequencer
@@ -463,14 +460,32 @@ def clear_memory(pickle_path: str) -> None:
         pickle.dump(collections.defaultdict(dict), f)
 
 
-def get_size(path: str) -> float:
+def sizeof_fmt(num: int, suffix="B") -> str:
+    """
+    Function to turn bytes to human readable file size format
+    Taken from https://stackoverflow.com/questions/1094841/get-human-readable-version-of-file-size
+    Input:
+        num: bytes
+        suffix: default B, (optional)
+
+    Return: file size in human-readable format
+    """
+
+    for unit in ["", "k", "M", "G", "T", "P", "E", "Z"]:
+        if abs(num) < 1024.0:
+            return f"{num:3.1f}{unit}{suffix}"
+        num /= 1024.0
+    return f"{num:.1f}Yi{suffix}"
+
+
+def get_size(path: str) -> int:
     """
     Function to get size of directory
     Taken from https://note.nkmk.me/en/
     Input:
         path: directory path
 
-    Return: bytes -> GB
+    Return: filesize in bytes
     """
     total = 0
     with os.scandir(path) as it:
@@ -479,4 +494,4 @@ def get_size(path: str) -> float:
                 total += entry.stat().st_size
             elif entry.is_dir():
                 total += get_size(entry.path)
-    return round(total / 1024 / 1024 / 1024, 2)
+    return total
