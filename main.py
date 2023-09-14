@@ -255,7 +255,7 @@ def main():
                 log.info(today)
                 if runs:
                     post_message_to_slack(
-                        channel="egg-logs",
+                        channel="egg-alerts",
                         token=SLACK_TOKEN,
                         data=ansible_pickle,
                         debug=DEBUG,
@@ -276,7 +276,7 @@ def main():
         # today is the 24th and not a weekend or --notification tag
         if runs:
             post_message_to_slack(
-                channel="egg-logs",
+                channel="egg-alerts",
                 token=SLACK_TOKEN,
                 data=ansible_pickle,
                 debug=DEBUG,
