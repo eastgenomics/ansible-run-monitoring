@@ -57,6 +57,10 @@ Log file (``` ansible-run-monitoring.log ```) will be stored in ``` /log/monitor
 
 Cron has been scheduled to run the script daily
 
+## Arguments
+1. --notification : send notification for "to-be-deleted" runs
+
+
 ## Mock Testing
 
 `Dockerfile.test` has been provided.
