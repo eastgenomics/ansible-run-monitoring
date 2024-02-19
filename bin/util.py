@@ -15,6 +15,32 @@ from .helper import get_logger
 log = get_logger("util log")
 
 
+def post_simple_message_to_slack(
+    message: str,
+    channel: str,
+    slack_token: str,
+    debug: bool,
+) -> None:
+
+    if debug:
+        channel = "egg-test"
+
+    try:
+        requests.post(
+            "https://slack.com/api/chat.postMessage",
+            {
+                "token": slack_token,
+                "channel": f"#{channel}",
+                "text": message,
+            },
+        ).json()
+
+    except Exception as e:
+        # endpoint request fail from internal server side
+        log.error(f"Error sending POST request to channel #{channel}")
+        log.error(e)
+
+
 def post_message_to_slack(
     channel: str,
     token: str,
@@ -23,8 +49,7 @@ def post_message_to_slack(
     usage: tuple = (0, 0, 0),
     today: dt.datetime = None,
     jira_url: str = None,
-    notification: bool = False,
-    stale: bool = False,
+    action: str = None,
 ) -> None:
     """
     Function to send Slack notification
@@ -49,18 +74,18 @@ def post_message_to_slack(
     if debug:
         channel = "egg-test"
 
-    if notification:
-        # complicated msg sending where
-        # msg is a dict which need to be compiled
-        # into multiple Slack msg (if too long)
-        final_msg = []
-        data_count = 0
+    # complicated msg sending where
+    # msg is a dict which need to be compiled
+    # into multiple Slack msg (if too long)
+    final_msg = []
+    data_count = 0
 
-        gtotal, gused, _ = usage
-        gpercent = round((gused / gtotal) * 100, 2)
+    gtotal, gused, _ = usage
+    gpercent = round((gused / gtotal) * 100, 2)
 
-        marked_delete_size = 0
+    marked_delete_size = 0
 
+    if action in ["stale", "delete"]:
         for run, body in data.items():
             seq = body["seq"]
             key = body["key"]
@@ -69,7 +94,7 @@ def post_message_to_slack(
             size: int = body["size"]
 
             # format message depending on msg type
-            if stale:
+            if action == "stale":
                 # send about stale run
                 created_date = body["created"]
                 url = body["url"]
@@ -108,7 +133,7 @@ def post_message_to_slack(
                     # runs have jira ticket
                     # status == all released
                     continue
-            else:
+            elif action == "delete":
                 # remind about to-be-deleted runs
                 created_date = body["created"]
                 url = body["url"]
@@ -128,36 +153,86 @@ def post_message_to_slack(
                 )
                 data_count += 1
                 marked_delete_size += size
+    else:  # action is "manual intervention"
+        final_msg = data
+        data_count = len(data)
 
-        if not final_msg:
-            log.info("No data to post to Slack")
-            return None
+    if not final_msg:
+        log.info(f"No data to post to Slack for action: {action}")
+        return None
 
-        log.info(f"Posting {data_count} runs")
+    log.info(f"Posting {data_count} runs")
 
-        text_data = "\n".join(final_msg)
+    text_data = "\n".join(final_msg)
 
-        today = get_next_month(today, 1).strftime("%d %b %Y")
+    today = get_next_month(today, 1).strftime("%d %b %Y")
 
-        human_readable_used = sizeof_fmt(gused)
-        human_readable_total = sizeof_fmt(gtotal)
+    human_readable_used = sizeof_fmt(gused)
+    human_readable_total = sizeof_fmt(gtotal)
 
-        if stale:
-            pretext = (
-                ":warning: ansible-run-monitoring: "
-                f"{data_count} stale runs\n"
-                f"genetics usage: {human_readable_used}/{human_readable_total}GB | {gpercent}%"
-            )
-        else:
-            pretext = (
-                ":warning: ansible-run-monitoring: "
-                f"{data_count} runs that *WILL BE DELETED* on *{today}*\n"
-                f"genetics usage: {human_readable_used}/{human_readable_total} | {gpercent}%\n"
-                f"estimated genetics storage after deletion: {sizeof_fmt(gused - marked_delete_size)} | {(gused - marked_delete_size) / gtotal * 100:.2f}%"
-            )
+    if action == 'stale':
+        pretext = (
+            ":warning: ansible-run-monitoring: "
+            f"{data_count} stale runs\n"
+            f"genetics usage: {human_readable_used}/{human_readable_total}GB | {gpercent}%"
+        )
+    elif action == 'delete':
+        pretext = (
+            ":warning: ansible-run-monitoring: "
+            f"{data_count} runs that *WILL BE DELETED* on *{today}*\n"
+            f"genetics usage: {human_readable_used}/{human_readable_total} | {gpercent}%\n"
+            f"estimated genetics storage after deletion: {sizeof_fmt(gused - marked_delete_size)} | {(gused - marked_delete_size) / gtotal * 100:.2f}%"
+        )
+    elif action == "manual":
+        pretext = (
+            ":warning: ansible-run-monitoring: "
+            f"{data_count} runs that might require manual intervention!\n"
+        )
 
-        # number above 7,700 seems to get weird truncation
-        if len(text_data) < 7700:
+    # number above 7,700 seems to get weird truncation
+    if len(text_data) < 7700:
+        try:
+            response = http.post(
+                "https://slack.com/api/chat.postMessage",
+                {
+                    "token": token,
+                    "channel": f"#{channel}",
+                    "attachments": json.dumps(
+                        [{"pretext": pretext, "text": text_data}]
+                    ),
+                },
+            ).json()
+            http.close()
+        except Exception as e:
+            # endpoint request fail from internal server side
+            log.error(f"Error sending POST request to channel #{channel}")
+            log.error(e)
+    else:
+        # chunk data based on its length after '\n'.join()
+        # if > than 7700 after join(), we append
+        # data[start:end-1] into chunks.
+        # start = end - 1 and repeat
+        chunks = []
+        start = 0
+        end = 1
+
+        for index in range(1, len(final_msg) + 1):
+            chunk = final_msg[start:end]
+
+            if len("\n".join(chunk)) < 7700:
+                end = index
+
+                if end == len(final_msg):
+                    chunks.append(final_msg[start:end])
+            else:
+                chunks.append(final_msg[start : end - 1])
+                start = end - 1
+
+        log.info(f"Sending data in {len(chunks)} chunks")
+
+        for chunk in chunks:
+            text_data = "\n".join(chunk)
+
             try:
                 response = http.post(
                     "https://slack.com/api/chat.postMessage",
@@ -169,67 +244,11 @@ def post_message_to_slack(
                         ),
                     },
                 ).json()
-                http.close()
             except Exception as e:
                 # endpoint request fail from internal server side
                 log.error(f"Error sending POST request to channel #{channel}")
                 log.error(e)
-        else:
-            # chunk data based on its length after '\n'.join()
-            # if > than 7700 after join(), we append
-            # data[start:end-1] into chunks.
-            # start = end - 1 and repeat
-            chunks = []
-            start = 0
-            end = 1
-
-            for index in range(1, len(final_msg) + 1):
-                chunk = final_msg[start:end]
-
-                if len("\n".join(chunk)) < 7700:
-                    end = index
-
-                    if end == len(final_msg):
-                        chunks.append(final_msg[start:end])
-                else:
-                    chunks.append(final_msg[start : end - 1])
-                    start = end - 1
-
-            log.info(f"Sending data in {len(chunks)} chunks")
-
-            for chunk in chunks:
-                text_data = "\n".join(chunk)
-
-                try:
-                    response = http.post(
-                        "https://slack.com/api/chat.postMessage",
-                        {
-                            "token": token,
-                            "channel": f"#{channel}",
-                            "attachments": json.dumps(
-                                [{"pretext": pretext, "text": text_data}]
-                            ),
-                        },
-                    ).json()
-                except Exception as e:
-                    # endpoint request fail from internal server side
-                    log.error(f"Error sending POST request to channel #{channel}")
-                    log.error(e)
-            http.close()
-    else:
-        # simple msg sending
-        try:
-            response = http.post(
-                "https://slack.com/api/chat.postMessage",
-                {"token": token, "channel": f"#{channel}", "text": data},
-            ).json()
-
-            http.close()
-
-        except Exception as e:
-            # endpoint request fail from internal server side
-            log.error(f"Error sending POST request to channel #{channel}")
-            log.error(e)
+        http.close()
 
     if response["ok"]:
         log.info(f"POST request to channel #{channel} successful")
@@ -447,6 +466,8 @@ def check_age(date: dt.datetime, today: dt.datetime, week: int) -> bool:
         date: input date
         today: today date
         week: ANSIBLE_WEEK
+
+    Return: boolean
     """
     return date + relativedelta(weeks=+int(week)) < today
 

@@ -1,20 +1,31 @@
 # Ansible Run Monitoring
 ### python v3.8.17
 
-Script to automate deletion of local sequencing data from the server and notifying of stale runs (runs older than 1 day without associated Jira ticket or runs older than 30 days without Jira status `ALL SAMPLES RELEASED`). Automated deletion happens every 1st of every month. An alert will be sent on the 24th before deletion on the coming 1st. If the 24th falls on a weekend, the alert will be sent on the Friday instead.
+Script to automate deletion of local sequencing data and notifying of stale runs or runs that require manual intervention.
+Automated deletion happens on the 1st of every month - alert will be sent out on the 24th (previous month) before the deletion on the 1st (if 24th is on a weekend, alert will be sent on the Friday instead)
+
+
+### Stale Run Criteria
+**have to fit one of below criterias
+- run older than 1 day without a Jira ticket
+- run older than 30 days with Jira ticket status != `ALL SAMPLES RELEASED`
+
+### Deletable Run Criteria
+**have to fit all criteria
+- have 002 project present on DNANexus
+- been uploaded to `001_Staging_Area52`
+- run folder created `ANSIBLE_WEEK` ago
+- have Jira ticket with status `ALL SAMPLES RELEASED`
+- Jira ticket assay in `ANSIBLE_JIRA_ASSAY`
+
 
 ## Script Workflow
 
-- Script will be scheduled to run every day by cron
-- Compile list of runs in `/genetics`
-- To qualify for automated deletion, each runs need to fulfill four main criteria: 
-  - 002 project on DNANexus
-  - Runs on `001_Staging_Area52` DNAnexus project
-  - Created `ANSIBLE_WEEK` ago
-  - have Jira ticket with status `ALL SAMPLES RELEASED`
-  - assay in `ANSIBLE_JIRA_ASSAY`
-- Compile all qualified runs & save it to memory (pickle)
-- Send Slack notification on stale run + alert on automated deletion (24th of the month)
+- Script scheduled to run everyday by cron on ida server
+- Compile all runs currently in `/genetics`
+- Compile all runs that qualified for automated deletion & save it to memory (pickle)
+- Send Slack notification on stale run & run that require manual intervention
+- Send notification to #egg-alert on runs that will be deleted
 
 ## Rebuilding Docker Image
 
@@ -22,7 +33,7 @@ Run `docker build -t <image name> .`
 
 ## Running the Container
 ```
-docker run --env-file <path to config> -v <path to /genetics>:/genetics -v <path to /var/log/dx-streaming-upload>:/log/dx-streaming-upload -v <path to /var/log/monitoring>:/log/monitoring <image name:tag>
+docker run --env-file <path to config> -v <path to /genetics>:/genetics -v <path to /var/log/dx-streaming-upload>:/log/dx-streaming-upload -v <path to /var/log/monitoring>:/log/monitoring <image name:tag> --notification
 ```
 
 ## Config Env Variables
@@ -55,7 +66,7 @@ Log file (``` ansible-run-monitoring.log ```) will be stored in ``` /log/monitor
 
 ## Automation
 
-Cron has been scheduled to run the script daily
+Cron scheduled to run the script daily
 
 ## Arguments
 1. --notification : send notification for "to-be-deleted" runs

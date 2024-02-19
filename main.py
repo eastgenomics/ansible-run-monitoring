@@ -8,6 +8,7 @@ import argparse
 
 from bin.util import (
     post_message_to_slack,
+    post_simple_message_to_slack,
     check_project_directory,
     check_age,
     directory_check,
@@ -65,8 +66,11 @@ def main():
         log.error(f"Failed to import env {err}")
 
         message = f":warning:ANSIBLE-MONITORING: Failed to import env {err}"
-        post_message_to_slack(
-            channel="egg-alerts", token=SLACK_TOKEN, data=message, debug=DEBUG
+        post_simple_message_to_slack(
+            message,
+            "egg-alerts",
+            SLACK_TOKEN,
+            DEBUG,
         )
         sys.exit("END SCRIPT")
 
@@ -82,18 +86,26 @@ def main():
     if not dx_login(DNANEXUS_TOKEN):
         message = ":warning:ANSIBLE-MONITORING: ERROR with dxpy login!"
 
-        post_message_to_slack(
-            channel="egg-alerts", token=SLACK_TOKEN, data=message, debug=DEBUG
+        post_simple_message_to_slack(
+            message,
+            "egg-alerts",
+            SLACK_TOKEN,
+            DEBUG,
         )
+
         sys.exit("END SCRIPT")
 
     # check if /genetics & /logs/dx-streaming-upload exist
     if not directory_check([GENETIC_DIR, LOGS_DIR]):
         message = ":warning:ANSIBLE-MONITORING: ERROR with missing directory!"
 
-        post_message_to_slack(
-            channel="egg-alerts", token=SLACK_TOKEN, data=message, debug=DEBUG
+        post_simple_message_to_slack(
+            message,
+            "egg-alerts",
+            SLACK_TOKEN,
+            DEBUG,
         )
+
         sys.exit("END SCRIPT")
 
     # get script run date
@@ -157,11 +169,11 @@ def main():
                         f"\n```{e}```"
                     )
 
-                    post_message_to_slack(
-                        channel="egg-alerts",
-                        token=SLACK_TOKEN,
-                        data=msg,
-                        debug=DEBUG,
+                    post_simple_message_to_slack(
+                        msg,
+                        "egg-alerts",
+                        SLACK_TOKEN,
+                        DEBUG,
                     )
 
                     sys.exit("END SCRIPT")
@@ -231,11 +243,11 @@ def main():
                 msg = ":warning:" "ANSIBLE-MONITORING: ERROR with creating Jira ticket!"
                 msg += f"\n`{err_msg}`"
 
-                post_message_to_slack(
-                    channel="egg-alerts",
-                    token=SLACK_TOKEN,
-                    data=msg,
-                    debug=DEBUG,
+                post_simple_message_to_slack(
+                    msg,
+                    "egg-alerts",
+                    SLACK_TOKEN,
+                    DEBUG,
                 )
 
                 log.error(response)
@@ -262,7 +274,7 @@ def main():
                         usage=init_usage,
                         today=today,
                         jira_url=JIRA_SLACK_URL,
-                        notification=True,
+                        action="delete",
                     )
                 else:
                     log.info("NO RUNS IN MEMORY DETECTED")
@@ -283,7 +295,7 @@ def main():
                 usage=init_usage,
                 today=today,
                 jira_url=JIRA_SLACK_URL,
-                notification=True,
+                action="delete",
             )
         else:
             log.info("NO RUNS IN MEMORY DETECTED")
@@ -291,8 +303,9 @@ def main():
         # today is 25th to 31th
         pass
 
-    temp_pickle = collections.defaultdict(dict)
-    temp_stale = collections.defaultdict(dict)
+    temp_pickle = collections.defaultdict(dict)  # to store runs marked for deletion
+    temp_stale = collections.defaultdict(dict)  # to store stale run
+    temp_manual_intervention = []  # to store runs that need manual intervention
 
     genetic_directory, logs_directory, tmp_seq = get_runs(SEQS, GENETIC_DIR, LOGS_DIR)
 
@@ -304,7 +317,7 @@ def main():
     # for each project, we check if it exists on DNANexus
     for project in list(temp_duplicates):
         # check if proj in staging52
-        uploaded = check_project_directory(project)
+        uploaded: bool = check_project_directory(project)
 
         # get the sequencer the proj is in
         seq = tmp_seq[project]
@@ -357,7 +370,9 @@ def main():
 
                     log.info(
                         "{} {} ::: {} weeks PASS".format(
-                            project, created_on, duration.days / 7
+                            project,
+                            created_on,
+                            duration.days / 7,
                         )
                     )
 
@@ -367,7 +382,9 @@ def main():
                     # or assay incorrect
                     log.info(
                         "{} {} ::: {} weeks FAILED JIRA".format(
-                            project, created_on, round(duration.days / 7, 2)
+                            project,
+                            created_on,
+                            round(duration.days / 7, 2),
                         )
                     )
 
@@ -423,11 +440,24 @@ def main():
         else:
             # either no 002 project found
             # or not uploaded to staging52
-            log.info(
-                "{} {} ::: {} weeks FAILED".format(
-                    project, created_on, round(duration.days / 7, 2)
+
+            if not uploaded:
+                log.info(
+                    f"{project} {created_on} ::: {round(duration.days / 7, 2)}"
+                    " weeks FAILED - NOT ON STAGING52"
                 )
-            )
+            elif not project_data:
+                log.info(
+                    f"{project} {created_on} ::: {round(duration.days / 7, 2)}"
+                    " weeks FAILED - NO 002 PROJECT"
+                )
+
+            # check if run is more than ANSIBLE_WEEK weeks - time for manual intervention
+            if check_age(created_date, today, ANSIBLE_WEEK):
+                temp_manual_intervention.append(
+                    f"`{run_path}` :: {round(duration.days / 7, 2)} weeks"
+                )
+
             continue
 
     log.info(f"Stale runs to check: {len(temp_stale)}")
@@ -451,9 +481,21 @@ def main():
         usage=init_usage,
         today=today,
         jira_url=JIRA_SLACK_URL,
-        notification=True,
-        stale=True,
+        action="stale",
     )
+
+    # send about manual intervention
+    if temp_manual_intervention:
+        post_message_to_slack(
+            channel="egg-logs",
+            token=SLACK_TOKEN,
+            data=temp_manual_intervention,
+            debug=DEBUG,
+            usage=init_usage,
+            today=today,
+            jira_url=JIRA_SLACK_URL,
+            action="manual",
+        )
 
 
 if __name__ == "__main__":
