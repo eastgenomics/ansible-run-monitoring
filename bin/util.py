@@ -56,7 +56,7 @@ def post_message_to_slack(
         final_msg = []
         data_count = 0
 
-        gtotal, gused, gfree = usage
+        gtotal, gused, _ = usage
         gpercent = round((gused / gtotal) * 100, 2)
 
         marked_delete_size = 0
@@ -139,17 +139,20 @@ def post_message_to_slack(
 
         today = get_next_month(today, 1).strftime("%d %b %Y")
 
+        human_readable_used = sizeof_fmt(gused)
+        human_readable_total = sizeof_fmt(gtotal)
+
         if stale:
             pretext = (
                 ":warning: ansible-run-monitoring: "
                 f"{data_count} stale runs\n"
-                f"genetics usage: {gused}/{gtotal}GB | {gpercent}%"
+                f"genetics usage: {human_readable_used}/{human_readable_total}GB | {gpercent}%"
             )
         else:
             pretext = (
                 ":warning: ansible-run-monitoring: "
                 f"{data_count} runs that *WILL BE DELETED* on *{today}*\n"
-                f"genetics usage: {sizeof_fmt(gused)}/{sizeof_fmt(gtotal)} | {gpercent}%\n"
+                f"genetics usage: {human_readable_used}/{human_readable_total} | {gpercent}%\n"
                 f"estimated genetics storage after deletion: {sizeof_fmt(gused - marked_delete_size)} | {(gused - marked_delete_size) / gtotal * 100:.2f}%"
             )
 
