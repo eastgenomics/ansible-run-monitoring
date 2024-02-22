@@ -21,7 +21,7 @@ Automated deletion happens on the 1st of every month - alert will be sent out on
 
 ## Script Workflow
 
-- Script scheduled to run everyday by cron on ida server
+- Script scheduled to run everyday by cron on Ida server
 - Compile all runs currently in `/genetics`
 - Compile all runs that qualified for automated deletion & save it to memory (pickle)
 - Send Slack notification on stale run & run that require manual intervention

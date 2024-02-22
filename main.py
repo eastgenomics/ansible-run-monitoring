@@ -455,7 +455,11 @@ def main():
             # check if run is more than ANSIBLE_WEEK weeks - time for manual intervention
             if check_age(created_date, today, ANSIBLE_WEEK):
                 temp_manual_intervention.append(
-                    f"`{run_path}` :: {round(duration.days / 7, 2)} weeks"
+                    f"`{run_path}` :: {round(duration.days / 7, 2)} weeks\n"
+                    f"<{JIRA_SLACK_URL}{key}|{status}>\n"
+                    "No 002 project found"
+                    if not project_data
+                    else "Not on staging52"
                 )
 
             continue
