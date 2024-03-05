@@ -283,37 +283,41 @@ def check_for_deletion(
 
 
 def delete_runs(
-        ANSIBLE_PICKLE,
+        pickle,
         genetics_dir,
         jira_project_id,
         jira_reporter_id,
         slack_token,
         server_testing,
-        debug
+        debug,
+        jira
     ):
     """
     Delete the specified runs in the pickle file
 
     Inputs
     ------
-    ANSIBLE_PICKLE : str
-
+    pickle : str
+        pickle file with runs to be deleted
     genetics_dir : str
-
+        parent dir of sequencing runs
     jira_project_id : str
-
+        ID of Jira project
     jira_reporter_id : str
-
+        ID reporting to Jira as
     slack_token : str
-
+        Slack API token
     server_testing : bool
-
+        controls if running test
     debug : bool
-
+        controls debug level
+    jira : Jira
+        jira.Jira object
     """
     deleted_details = dict()
     deleted_runs = []
 
+    # allowed states for Jira tickets to be in for automated deletion
     jira_delete_status = [
         "ALL_SAMPLES_RELEASED",
         "DATA CANNOT BE PROCESSED",
@@ -324,7 +328,7 @@ def delete_runs(
     init_usage = shutil.disk_usage(genetics_dir)
     today = datetime.today()
 
-    runs_pickle = read_or_new_pickle(ANSIBLE_PICKLE)
+    runs_pickle = read_or_new_pickle(pickle)
 
     if not runs_pickle:
         # pickle file empty or doesn't exist => exit
@@ -365,7 +369,7 @@ def delete_runs(
                 "further automatic deletion"
             )
 
-            clear_memory(ANSIBLE_PICKLE)
+            clear_memory(pickle)
 
             msg = (
                 ":warning:"
@@ -402,7 +406,7 @@ def delete_runs(
 
         # format deleted run for issue description
         jira_data = [
-            "{} in /genetics/{}".format(k, v["seq"]) for k, v in tmp_delete.items()
+            f"{k} in /genetics/{v['seq']}" for k, v in deleted_details.items()
         ]
 
         # description body
@@ -514,7 +518,6 @@ def main():
         debug=env.debug
     )
 
-
     if today.isoweekday == 1:
         # Monday => check for runs to delete and send upcoming alert
         check_for_deletion(
@@ -533,13 +536,14 @@ def main():
     elif today.isoweekday == 3:
         # Wednesday => run the deletion
         delete_runs(
-            ANSIBLE_PICKLE=env.pickle_file,
+            pickle=env.pickle_file,
             genetics_dir=env.genetics_dir,
             jira_project_id=env.jira_project_id,
             jira_reporter_id=env.jira_reporter_id,
             slack_token=env.slack_token,
             server_testing=env.server_testing,
-            debug=env.debug
+            debug=env.debug,
+            jira=jira
         )
 
     else:
