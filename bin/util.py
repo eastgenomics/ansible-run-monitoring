@@ -337,8 +337,8 @@ def check_project_directory(directory: str) -> bool:
 
 def get_describe_data(project: str) -> list:
     """
-    Function to see if there is 002 project
-    and its describe data
+    Function to see if there is 002 project and its describe data
+
     Input:
         project: text
     Return:
@@ -351,7 +351,7 @@ def get_describe_data(project: str) -> list:
         )
     )
 
-    return projects[0] if projects else []
+    return projects[0] if projects else {}
 
 
 def read_or_new_pickle(path: str) -> dict:
@@ -402,13 +402,23 @@ def get_weekday(date: dt.datetime, day: int, forward: bool = True):
     return date
 
 
-def get_runs(seqs: list, gene_path: str, log_path: str):
+def get_runs(seqs: list, genetic_dir: str, log_path: str):
     """
-    Function to check overlap between genetic_dir and log_dir
+    Function to check overlap between genetic_dir (where the sequencing
+    runs are written to) and log_dir (the logs of dx-streaming-upload)
+
     Input:
         seqs: list of sequencers
         genetic_dir: path to /genetics
         log_dir: path to all log files
+
+    Returns:
+        genetic_directory : list
+            list of identified run directories
+        logs_directory : list
+            list of log files identified
+        tmp_seq : dict
+            mapping of run directory to sequencer ID it came from
     """
     genetic_directory = []
     logs_directory = []
@@ -418,7 +428,7 @@ def get_runs(seqs: list, gene_path: str, log_path: str):
         log.info(f"Loop through {sequencer} started")
 
         # Defining gene and log directories
-        gene_dir = f"{gene_path}/{sequencer}"
+        gene_dir = f"{genetic_dir}/{sequencer}"
         logs_dir = f"{log_path}/{sequencer}"
 
         # list files in directories
