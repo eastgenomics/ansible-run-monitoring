@@ -93,7 +93,18 @@ def check_for_deletion(
     ):
     """
     Check for runs to delete, will be called every Monday and check for
-    runs that are over X weeks old
+    runs that can be automatically deleted against the following criteria:
+
+        - over X weeks old (defined from config)
+        - have data in StagingArea52 DNAnexus project
+        - have a 002 project
+        - have a Jira ticket with stats in one of the following:
+            - ALL_SAMPLES_RELEASED
+            - DATA CANNOT BE PROCESSED
+            - DATA CANNOT BE RELEASED
+
+    Any runs that are old enough but do not meet the above criteria will be
+    added to a Slack alert for manual review.
 
     Inputs
     ------
@@ -114,9 +125,10 @@ def check_for_deletion(
         If running in debug
     jira_assay : list
         list of Jira assay codes we automatically delete runs for
-    jira_url : ?
-
-    jira
+    jira_url : str
+        URL endpoint for our Jira
+    jira : jira.Jira
+        Jira class object for querying Jira
 
     Outputs
     -------
@@ -284,7 +296,8 @@ def delete_runs(
         jira
     ):
     """
-    Delete the specified runs in the pickle file
+    Delete the specified runs in the pickle file that have been
+    previously checked and flagged for automatic deletion
 
     Inputs
     ------
