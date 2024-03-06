@@ -28,7 +28,7 @@ from bin.jira import Jira
 log = get_logger("main log")
 
 
-def get_env_variables():
+def get_env_variables() -> SimpleNamespace:
     """
     Get required environment variables for running and store
     these in a NameSpace object
@@ -89,8 +89,7 @@ def check_for_deletion(
         jira_assay,
         jira_url,
         jira
-
-    ):
+    ) -> None:
     """
     Check for runs to delete, will be called every Monday and check for
     runs that can be automatically deleted against the following criteria:
@@ -294,7 +293,7 @@ def delete_runs(
         server_testing,
         debug,
         jira
-    ):
+    ) -> None:
     """
     Delete the specified runs in the pickle file that have been
     previously checked and flagged for automatic deletion
