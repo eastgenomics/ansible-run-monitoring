@@ -1,11 +1,11 @@
 import collections
 import datetime as dt
-import dxpy as dx
 import json
 import os
 import pickle
 import requests
 
+import dxpy as dx
 from requests.adapters import HTTPAdapter
 from urllib3.util import Retry
 from dateutil.relativedelta import relativedelta

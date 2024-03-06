@@ -1,4 +1,3 @@
-import argparse
 import collections
 from datetime import datetime
 import os
@@ -16,8 +15,6 @@ from bin.util import (
     dx_login,
     read_or_new_pickle,
     clear_memory,
-    get_next_month,
-    get_weekday,
     get_describe_data,
     get_size,
     get_date,
@@ -31,16 +28,10 @@ from bin.jira import Jira
 log = get_logger("main log")
 
 
-def parse_arguments() -> argparse.Namespace:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-n", "--notification", action="store_true")
-
-    return parser.parse_args()
-
-
 def get_env_variables():
     """
-    Get required environment variables for running
+    Get required environment variables for running and store
+    these in a NameSpace object
 
     Returns
     -------
@@ -72,11 +63,11 @@ def get_env_variables():
     selected_env = SimpleNamespace()
     missing = []
 
-    for k, v in env_variable_mapping.items():
-        if not os.environ.get(v):
-            missing.append(v)
+    for key, value in env_variable_mapping.items():
+        if not os.environ.get(value):
+            missing.append(value)
         else:
-            selected_env.k = os.environ.get(v)
+            selected_env.key = os.environ.get(value)
 
     assert not missing, (
         f"Error - missing one or more environment variables "
@@ -153,7 +144,7 @@ def check_for_deletion(
         # check if proj in staging52
         uploaded: bool = check_project_directory(run)
 
-        # get the sequencer the proj is in
+        # get the sequencer the run is from
         seq = tmp_seq[run]
 
         # get run size
@@ -283,7 +274,7 @@ def check_for_deletion(
 
 
 def delete_runs(
-        pickle,
+        pickle_file,
         genetics_dir,
         jira_project_id,
         jira_reporter_id,
@@ -328,11 +319,14 @@ def delete_runs(
     init_usage = shutil.disk_usage(genetics_dir)
     today = datetime.today()
 
-    runs_pickle = read_or_new_pickle(pickle)
+    runs_pickle = read_or_new_pickle(pickle_file)
 
     if not runs_pickle:
         # pickle file empty or doesn't exist => exit
-        log.info("pickle file empty or doesn't exist. Exiting now.")
+        log.info(
+            f"pickle file {pickle_file} empty or doesn't exist, nothing "
+            "to delete. Exiting now."
+        )
         sys.exit(0)
 
     for run, values in runs_pickle.items():
@@ -366,10 +360,10 @@ def delete_runs(
         except OSError as err:
             log.error(
                 f"Error in deleting {genetics_dir}/{seq}/{run}. Stopping "
-                "further automatic deletion"
+                "further automatic deletion."
             )
 
-            clear_memory(pickle)
+            clear_memory(pickle_file)
 
             msg = (
                 ":warning:"
@@ -379,10 +373,10 @@ def delete_runs(
             )
 
             post_simple_message_to_slack(
-                msg,
-                "egg-alerts",
-                slack_token,
-                debug,
+                message=msg,
+                channel="egg-alerts",
+                slack_token=slack_token,
+                debug=debug,
             )
 
             sys.exit("END SCRIPT")
@@ -395,7 +389,7 @@ def delete_runs(
         # make datetime into str type
         jira_date = today.strftime("%d/%m/%Y")
 
-        # format disk usage for jira issue description
+        # format disk usage for Jira issue description
         init_total = round(init_usage[0] / 1024 / 1024 / 1024, 2)
         init_used = round(init_usage[1] / 1024 / 1024 / 1024, 2)
         init_percent = round((init_usage[1] / init_usage[0]) * 100, 2)
@@ -461,16 +455,13 @@ def delete_runs(
             log.error(response)
             sys.exit("END SCRIPT")
 
-
     # write to /log just for own record
     with open("/log/monitoring/ansible_delete.txt", "a") as f:
         for deleted in deleted_runs:
             f.write(deleted)
 
 
-
 def main():
-    args = parse_arguments()
     env = get_env_variables()
 
     # log debug status
@@ -536,7 +527,7 @@ def main():
     elif today.isoweekday == 3:
         # Wednesday => run the deletion
         delete_runs(
-            pickle=env.pickle_file,
+            pickle_file=env.pickle_file,
             genetics_dir=env.genetics_dir,
             jira_project_id=env.jira_project_id,
             jira_reporter_id=env.jira_reporter_id,
