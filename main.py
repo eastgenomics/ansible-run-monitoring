@@ -91,7 +91,7 @@ def check_for_deletion(
         jira
     ) -> None:
     """
-    Check for runs to delete, will be called every Monday and check for
+    Check for runs to delete, will be called everyday but and check for
     runs that can be automatically deleted against the following criteria:
 
         - over X weeks old (defined from config)
@@ -102,8 +102,9 @@ def check_for_deletion(
             - DATA CANNOT BE PROCESSED
             - DATA CANNOT BE RELEASED
 
-    Any runs that are old enough but do not meet the above criteria will be
-    added to a Slack alert for manual review.
+    Any runs that are old enough but do not meet the above criteria will
+    be added to a Slack alert for manual review. The pickle file will
+    only be updated on a Monday ahead of deletion on the Wednesday
 
     Inputs
     ------
@@ -134,8 +135,8 @@ def check_for_deletion(
     file
         pickle file with details on runs to automatically delete store in
     """
-    to_delete = collections.defaultdict(dict)  # to store runs marked for deletion
-    manual_review = []  # to store runs that need manually reviewing
+    to_delete = {}  # to store runs marked for deletion
+    manual_review = {}  # to store runs that need manually reviewing
 
     genetic_directory, logs_directory, tmp_seq = get_runs(
         seqs, genetics_dir, logs_dir
@@ -264,11 +265,26 @@ def check_for_deletion(
                 "size": run_size,
             }
 
-    if to_delete:
-        # found more than one run to delete
+    if to_delete and today.isoweekday(1):
+        # found more than one run to delete and today is Monday =>
+        # update the pickle file for deletion on Wednesday
         log.info("Writing runs flagged to delete into pickle file")
         with open(pickle_file, "wb") as f:
             pickle.dump(to_delete, f)
+
+    if to_delete and today.isoweekday(1):
+        # alert us that some runs will be deleted on the next Wednesday
+        post_message_to_slack(
+            channel="egg-alerts",
+            token=slack_token,
+            data=to_delete,
+            debug=debug,
+            n_weeks=ansible_week,
+            usage=init_usage,
+            today=today,
+            jira_url=jira_url,
+            action="delete",
+        )
 
     if manual_review:
         # found more than one run requiring manually reviewing
@@ -277,6 +293,7 @@ def check_for_deletion(
             token=slack_token,
             data=manual_review,
             debug=debug,
+            n_weeks=ansible_week,
             usage=init_usage,
             today=today,
             jira_url=jira_url,
@@ -521,22 +538,21 @@ def main():
         debug=env.debug
     )
 
-    if today.isoweekday == 1:
-        # Monday => check for runs to delete and send upcoming alert
-        check_for_deletion(
-            seqs=env.seqs,
-            genetics_dir=env.genetics_dir,
-            logs_dir=env.ogs_dir,
-            ansible_week=env.ansible_week,
-            server_testing=env.server_testing,
-            slack_token=env.slack_token,
-            pickle_file=env.pickle_file,
-            debug=env.debug,
-            jira=jira,
-            jira_assay=env.jira_assay,
-            jira_url=env.jira_url
-        )
-    elif today.isoweekday == 3:
+    check_for_deletion(
+        seqs=env.seqs,
+        genetics_dir=env.genetics_dir,
+        logs_dir=env.ogs_dir,
+        ansible_week=env.ansible_week,
+        server_testing=env.server_testing,
+        slack_token=env.slack_token,
+        pickle_file=env.pickle_file,
+        debug=env.debug,
+        jira=jira,
+        jira_assay=env.jira_assay,
+        jira_url=env.jira_url
+    )
+
+    if today.isoweekday == 3:
         # Wednesday => run the deletion
         delete_runs(
             pickle_file=env.pickle_file,
@@ -548,14 +564,6 @@ def main():
             debug=env.debug,
             jira=jira
         )
-
-    else:
-        # other day of the week => do nothing
-        log.info(
-            f"Today is not Monday or Wednesday - nothing to do"
-        )
-        sys.exit(0)
-
 
 if __name__ == "__main__":
     log.info("STARTING SCRIPT")
