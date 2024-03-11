@@ -168,7 +168,7 @@ def delete_test_data() -> None:
     """
     Check for test data directories and pickle file to clean up
     """
-    print("Deleting test data directories")
+    print("Cleaning up test data directories")
     if os.path.exists('simulate_test'):
         shutil.rmtree('simulate_test')
 
@@ -246,7 +246,7 @@ def simulate_checking(jira, day) -> None:
 
     # patch over datetime to simulate running on each day of the week,
     # since the day param starts at 1 and 04/03/2024 was a Monday, we
-    # will add 3 for each iteration
+    # will add 3 to each iteration to start from Monday
     patch(
         'main.datetime',
         Mock(today=lambda: datetime(2024, 3, day + 3))
@@ -269,7 +269,7 @@ def simulate_checking(jira, day) -> None:
     patch.stopall()
 
 
-def simulate_deletion(jira) -> None:
+def simulate_deletion(jira, day) -> None:
     """
     Simulate running on a Wednesday and deleting runs according to what
     is stored in the pickle file
@@ -278,8 +278,18 @@ def simulate_deletion(jira) -> None:
     ----------
     jira : jira.Jira
         Jira object for Jira queries
+    day : int
+        day of the week we are (potentially) deleting for
     """
     print("Simulating deletion of run directories")
+
+    # patch over datetime to simulate running on each day of the week,
+    # since the day param starts at 1 and 04/03/2024 was a Monday, we
+    # will add 3 to each iteration to start from Monday
+    patch(
+        'main.datetime',
+        Mock(today=lambda: datetime(2024, 3, day + 3))
+    ).start()
 
     delete_runs(
         pickle_file="check.pkl",
@@ -342,7 +352,7 @@ def main():
             print("Exiting now due to prior error")
             sys.exit()
 
-        simulate_deletion(jira=jira)
+        simulate_deletion(jira=jira, day=day)
 
         # clean up test data
         delete_test_data()

@@ -383,7 +383,7 @@ def delete_runs(
         seq = values["seq"].strip()
         key = values["key"].strip()
         assay = values["assay"].strip()
-        size = values["size"].strip()
+        size = str(values["size"]).strip()
 
         if status.upper() not in jira_delete_status:
             log.info(
