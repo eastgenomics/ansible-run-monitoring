@@ -5,3 +5,5 @@ env
 .pytest_cache
 *.log
 *.pickle
+*.pkl
+*.conf
