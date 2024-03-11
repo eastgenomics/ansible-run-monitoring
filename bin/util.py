@@ -200,7 +200,7 @@ def post_message_to_slack(
 
     text_data = "\n".join(final_msg)
 
-    deletion = today + dt.timedelta(days=2).strftime("%d %b %Y")
+    deletion = (today + dt.timedelta(days=2)).strftime("%d %b %Y")
 
     human_readable_used = sizeof_fmt(gused)
     human_readable_total = sizeof_fmt(gtotal)

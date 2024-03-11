@@ -30,9 +30,11 @@ The above needs to be tested on following days of the week:
 
 """
 from datetime import datetime
-from faker import Faker
 import os
 import shutil
+import sys
+
+from faker import Faker
 from unittest.mock import Mock, patch
 from dateutil.relativedelta import relativedelta
 
@@ -282,13 +284,24 @@ def simulate_deletion(jira) -> None:
     delete_runs(
         pickle_file="check.pkl",
         genetics_dir="simulate_test/",
-        jira_project_id=env.jira_project_id,
-        jira_reporter_id=env.jira_reporter_id,
-        slack_token=env.slack_token,
-        server_testing=env.server_testing,
-        debug=env.debug,
+        jira_project_id=os.environ.get('JIRA_PROJECT_ID'),
+        jira_reporter_id=os.environ.get('JIRA_REPORTER_ID'),
+        slack_token=os.environ.get('SLACK_TOKEN'),
+        server_testing=os.environ.get('SERVER_TESTING'),
+        debug=os.environ.get('DEBUG'),
         jira=jira
     )
+
+    # delete_runs(
+    #     pickle_file="check.pkl",
+    #     genetics_dir="simulate_test/",
+    #     jira_project_id=env.jira_project_id,
+    #     jira_reporter_id=env.jira_reporter_id,
+    #     slack_token=env.slack_token,
+    #     server_testing=env.server_testing,
+    #     debug=env.debug,
+    #     jira=jira
+    # )
 
 
 def main():
@@ -317,23 +330,23 @@ def main():
         create_test_logs()
         issues = create_jira_tickets(jira=jira)
 
-        stop = False
-
         try:
             simulate_checking(jira=jira, day=day)
         except Exception as err:
             # ensure we always clean up test data
             print(f"Error occured during checking: {err}")
-            stop = True
+
+            delete_test_data()
+            delete_jira_tickets(jira, issues)
+
+            print("Exiting now due to prior error")
+            sys.exit()
+
+        simulate_deletion(jira=jira)
 
         # clean up test data
         delete_test_data()
         delete_jira_tickets(jira, issues)
-
-        if stop:
-            print("Exiting now due to prior error")
-
-    # simulate_deletion(jira=jira)
 
 
 if __name__=="__main__":

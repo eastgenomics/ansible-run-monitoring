@@ -145,9 +145,6 @@ def check_for_deletion(
     init_usage = shutil.disk_usage(genetics_dir)
     today = datetime.today()
 
-    print(f'TODAY IS {today.isoweekday()}')
-    print(today)
-
     # Get the duplicates between two directories /genetics & /var/log/ =>
     # valid sequencing runs that dx-streaming-upload has uploaded
     local_runs = sorted(set(genetic_directory) & set(logs_directory))
@@ -360,6 +357,15 @@ def delete_runs(
     init_usage = shutil.disk_usage(genetics_dir)
     today = datetime.today()
 
+    if today.isoweekday() != 3:
+        # today is not a Wednesday => don't do anything
+        log.info(
+            f"Today is {today.strftime('%A')} therefore no "
+            "deletion will be performed"
+        )
+
+        return
+
     runs_pickle = read_or_new_pickle(pickle_file)
 
     if not runs_pickle:
@@ -564,18 +570,17 @@ def main():
         jira_url=env.jira_url
     )
 
-    if today.isoweekday() == 3:
-        # Wednesday => run the deletion
-        delete_runs(
-            pickle_file=env.pickle_file,
-            genetics_dir=env.genetics_dir,
-            jira_project_id=env.jira_project_id,
-            jira_reporter_id=env.jira_reporter_id,
-            slack_token=env.slack_token,
-            server_testing=env.server_testing,
-            debug=env.debug,
-            jira=jira
-        )
+    delete_runs(
+        pickle_file=env.pickle_file,
+        genetics_dir=env.genetics_dir,
+        jira_project_id=env.jira_project_id,
+        jira_reporter_id=env.jira_reporter_id,
+        slack_token=env.slack_token,
+        server_testing=env.server_testing,
+        debug=env.debug,
+        jira=jira
+    )
+
 
 if __name__ == "__main__":
     log.info("STARTING SCRIPT")
