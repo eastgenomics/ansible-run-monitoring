@@ -6,6 +6,7 @@ directory defined below
 
 import logging
 from logging.handlers import TimedRotatingFileHandler
+import os
 from pathlib import Path
 import sys
 
@@ -13,10 +14,19 @@ import sys
 FORMATTER = logging.Formatter(
     "%(asctime)s:%(name)s:%(module)s:%(levelname)s:%(message)s"
 )
-LOG_FILE = "/log/monitoring/ansible-run-monitoring.log"
 
-Path("/log/monitoring").mkdir(parents=True, exist_ok=True)
-Path(LOG_FILE).touch(exist_ok=True)
+if os.access("/log", os.W_OK):
+    # running in Docker container
+    LOG_FILE = "/log/monitoring/ansible-run-monitoring.log"
+
+    Path("/log/monitoring").mkdir(parents=True, exist_ok=True)
+    Path(LOG_FILE).touch(exist_ok=True)
+else:
+    # running elsewhere (likely testing)
+    LOG_FILE = os.path.join(os.getcwd(), "ansible-run-monitoring.log")
+
+    Path(os.getcwd()).mkdir(parents=True, exist_ok=True)
+    Path(LOG_FILE).touch(exist_ok=True)
 
 
 def get_console_handler():

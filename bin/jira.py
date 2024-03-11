@@ -138,6 +138,7 @@ class Jira:
         self.url = f"{api_url}/servicedeskapi/servicedesk"
         self.debug = debug
 
+
     def get_all_service_desk(self):
         """
         Get all service desk on Jira
@@ -145,6 +146,7 @@ class Jira:
         url = self.url
         response = self.http.get(url, headers=self.headers, auth=self.auth)
         return response.json()
+
 
     def get_queues_in_service_desk(self, servicedesk_id):
         """
@@ -154,9 +156,10 @@ class Jira:
         response = self.http.get(url, headers=self.headers, auth=self.auth)
         return response.json()
 
+
     def get_all_issues(
-        self, servicedesk_id: int, queue_id: int, trimmed: bool = False
-    ) -> list:
+            self, servicedesk_id: int, queue_id: int, trimmed: bool = False
+        ) -> list:
         """
         Get all issues of a queue in specified service desk
         Inputs:
@@ -190,6 +193,7 @@ class Jira:
             return result
         return issues
 
+
     def get_issue(self, issue_id: Union[int, str], trimmed: bool = False):
         """
         Get details of specified issue
@@ -202,6 +206,7 @@ class Jira:
         if trimmed:
             return Issue(response.json()).__dict__
         return response.json()
+
 
     def search_issue(self, sequence_name: str, project_name: str = "EBH") -> dict:
         """
@@ -224,7 +229,8 @@ class Jira:
 
         return response.json()
 
-    def get_assay(issue: dict):
+
+    def get_assay(self, issue: dict):
         """
         Get assay options of an issue
         """
@@ -232,7 +238,8 @@ class Jira:
             return issue["fields"]["customfield_10070"][0].get("value", None)
         return None
 
-    def get_issue_detail(self, project: str, server: bool) -> tuple:
+
+    def get_issue_detail(self, run: str, server: bool) -> tuple:
         """
         Function to do an issue search and return its
         detail
@@ -250,7 +257,7 @@ class Jira:
             # debug = False / server = True
             desk = "EBH"
 
-        jira_data = self.search_issue(project, project_name=desk)
+        jira_data = self.search_issue(run, project_name=desk)
 
         # if Jira return no result / error
         if (jira_data["total"] < 1) or ("errorMessages" in jira_data):
@@ -260,28 +267,32 @@ class Jira:
 
         elif jira_data["total"] > 1:
             # more than one issue found
-            filtered_issues: list[Issue] = []
+            filtered_issues = []
 
             for result in jira_data["issues"]:
                 # remove those that start with 'RE' (replies)
-                # exclude those that're not Sequencing requestType (39)
-                if ("customfield_10010" in result["fields"]) and (
-                    not result["fields"]["summary"].startswith("RE")
-                ):
-                    if (result["fields"]["customfield_10010"] is not None) and (
-                        result["fields"]["customfield_10010"]["requestType"]["id"]
-                        == "39"
-                    ):
-                        filtered_issues.append(Issue(result))
+                # exclude those that're not sequencing issuetype
+                sequencing_run = result['fields'].get(
+                    "issuetype", {}).get("id", "") == "10179"
+                reply = result['fields']['summary'].startswith("RE")
+
+                if sequencing_run and not reply:
+                    filtered_issues.append(Issue(result))
 
             if len(filtered_issues) == 1:
                 assay = filtered_issues[0].assay
                 status = filtered_issues[0].status.name
                 key = filtered_issues[0].key
+
+            elif len(filtered_issues) == 0:
+                assay = "No Jira ticket found after filtering"
+                status = "No Jira ticket found after filtering"
+                key = None
+
             else:
                 assay = "More than 1 Jira ticket detected"
                 status = "More than 1 Jira ticket detected"
-                key = None
+                key = "Multiple"
         else:
             # only one Jira ticket found
             issue = Issue(jira_data["issues"][0])
@@ -291,16 +302,17 @@ class Jira:
 
         return assay, status, key
 
+
     def create_issue(
-        self,
-        summary: str,
-        issue_id: int,
-        project_id: int,
-        reporter_id: str,
-        priority_id: int,
-        desc: str,
-        assay: bool,
-    ) -> dict:
+            self,
+            summary: str,
+            issue_id: int,
+            project_id: int,
+            reporter_id: str,
+            priority_id: int,
+            desc: str,
+            assay: bool,
+        ) -> dict:
         """
         Create a ticket issue
         Inputs:
@@ -373,6 +385,7 @@ class Jira:
 
         return response.json()
 
+
     def make_transition(self, issue_id, transition_id):
         """
         Make a transition for an issue
@@ -385,7 +398,6 @@ class Jira:
         }
 
         payload = json.dumps({"transition": {"id": transition_id}})
-
         response = self.http.post(url, data=payload, headers=headers, auth=self.auth)
 
         if response.status_code == 204:
@@ -393,18 +405,19 @@ class Jira:
         else:
             return response.text
 
+
     def delete_issue(self, issue_id):
         """
         Delete an issue
         """
         url = f"{self.api_url}/api/3/issue/{issue_id}"
-
         response = requests.request("DELETE", url, auth=self.auth)
 
         if response.status_code == 204:
             return "Request successful"
         else:
             return response.text
+
 
     def get_available_transitions(self, issue_id):
         """

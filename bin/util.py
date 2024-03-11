@@ -64,7 +64,6 @@ def post_message_to_slack(
         jira_url: jira_slack_notify url
         action: type of message to send (i.e. manual, delete)
     """
-
     log.info(f"Sending POST request to channel: #{channel}")
 
     http = requests.Session()
@@ -97,6 +96,8 @@ def post_message_to_slack(
         status = body["status"]
         assay = body["assay"]
         size: int = body["size"]
+        uploaded = body["uploaded"]
+        project = body["project"]
 
         # format message depending on msg type
         if action == "manual":
@@ -118,10 +119,33 @@ def post_message_to_slack(
                     f">{duration.days // 7} weeks "
                     f"{duration.days % 7} days ago\n"
                 )
-                data_count += 1
+
+            elif not uploaded:
+                # not found run data in StagingArea52
+                final_msg.append(
+                    f"`/genetics/{seq}/{run}`\n"
+                    "Run does not appear to have uploaded to StagingArea52\n"
+                )
+            elif not project:
+                # does not appear to be a 002 project
+                final_msg.append(
+                     f"`/genetics/{seq}/{run}`\n"
+                     "Run has no 002 project\n"
+                )
+            elif key == "Multiple":
+                # Found more than one Jira ticket for the given run ID
+                final_msg.append(
+                    f"`/genetics/{seq}/{run}`\n"
+                    "Run has more than one matching Jira ticket\n"
+                )
+                final_msg.append(
+                    f"><{url}|DNANexus Link>\n"
+                    f">{duration.days // 7} weeks "
+                    f"{duration.days % 7} days ago\n"
+                )
             elif duration.days > n_weeks * 7 and status.upper() not in jira_delete_status:
-                # run is old enough to be deleted but ticker not in done
-                # state => alert us
+                # run is old enough to be deleted but ticket
+                # not in done state => alert us
                 final_msg.append(
                     f"`/genetics/{seq}/{run}`\n"
                     "Jira ticket not in closed state "
@@ -141,6 +165,9 @@ def post_message_to_slack(
                     "continuing..."
                 )
                 continue
+
+            data_count += 1
+
         elif action == "delete":
             # remind about to-be-deleted runs
             created_date = body["created"]
@@ -154,7 +181,7 @@ def post_message_to_slack(
                 f"<{jira_url}{key}|{status}> | {assay} | {sizeof_fmt(size)}"
             )
             final_msg.append(
-                f"><{url}|DNANexus Link>\n"
+                f"><{url}|DNAnexus Link>\n"
                 f">Created Date: {created_date}\n"
                 f">{duration.days // 7} weeks "
                 f"{duration.days % 7} days ago\n"
@@ -173,7 +200,7 @@ def post_message_to_slack(
 
     text_data = "\n".join(final_msg)
 
-    today = get_next_month(today, 1).strftime("%d %b %Y")
+    deletion = today + dt.timedelta(days=2).strftime("%d %b %Y")
 
     human_readable_used = sizeof_fmt(gused)
     human_readable_total = sizeof_fmt(gtotal)
@@ -183,7 +210,7 @@ def post_message_to_slack(
     if action == 'delete':
         pretext = (
             ":warning: ansible-run-monitoring: "
-            f"{data_count} runs that *WILL BE DELETED* on *{today}*\n"
+            f"*{data_count} runs* that *WILL BE DELETED* on *{deletion}*\n"
             f"Current storage: {human_readable_used}/{human_readable_total} "
             f"| {gpercent}%\nEstimated storage after deletion: "
             f"{sizeof_fmt(gused - marked_delete_size)} | "
@@ -192,9 +219,9 @@ def post_message_to_slack(
     elif action == "manual":
         pretext = (
             ":warning: ansible-run-monitoring: "
-            f"{data_count} runs that might require manual intervention!\n"
+            f"*{data_count} runs* that might require manual intervention!\n"
             f"Current storage: {human_readable_used} / {human_readable_total} "
-            f"({gpercent}"
+            f"| {gpercent}%"
         )
     else:
         # currently should not reach here since we control the action param
@@ -312,10 +339,11 @@ def dx_login(token: str) -> bool:
         return False
 
 
-def check_project_directory(directory: str) -> bool:
+def check_run_uploaded(directory: str) -> bool:
     """
-    Function to check if project is in staging52.
+    Function to check if run is in stagingArea52 DNAnexus project
     by checking if there's any file returned from that directory
+
     Input:
         directory: directory path
     Return:

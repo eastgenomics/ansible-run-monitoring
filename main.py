@@ -1,4 +1,3 @@
-import collections
 from datetime import datetime
 import os
 import pickle
@@ -9,7 +8,7 @@ from types import SimpleNamespace
 from bin.util import (
     post_message_to_slack,
     post_simple_message_to_slack,
-    check_project_directory,
+    check_run_uploaded,
     check_age,
     directory_check,
     dx_login,
@@ -146,15 +145,19 @@ def check_for_deletion(
     init_usage = shutil.disk_usage(genetics_dir)
     today = datetime.today()
 
+    print(f'TODAY IS {today.isoweekday()}')
+    print(today)
+
     # Get the duplicates between two directories /genetics & /var/log/ =>
     # valid sequencing runs that dx-streaming-upload has uploaded
-    uploaded_runs = set(genetic_directory) & set(logs_directory)
+    local_runs = sorted(set(genetic_directory) & set(logs_directory))
 
-    log.info(f"Found {len(uploaded_runs)} run directories")
+    log.info(f"Found {len(local_runs)} run directories")
 
-    for run in uploaded_runs:
-        # check if proj in staging52
-        uploaded: bool = check_project_directory(run)
+    for run in local_runs:
+        log.info(f"Checking state of {run}")
+        # check if run in stagingArea52 DNAnexus project
+        uploaded = check_run_uploaded(run)
 
         # get the sequencer the run is from
         seq = tmp_seq[run]
@@ -190,10 +193,15 @@ def check_for_deletion(
 
         delete = False
 
+        log.info(
+            f"Following data found: old enough: {old_enough}; uploaded: "
+            f"{uploaded}; 002 project: {url}; Jira status: {status}"
+        )
+
         if not old_enough:
             # run less than defined no. weeks to wait to delete => skip
             log.info(
-                f"{project} {created_on} ::: {round(duration.days / 7, 2)}"
+                f"{run} {created_on} ::: {round(duration.days / 7, 2)}"
                 f" weeks - not old enough to delete"
             )
 
@@ -204,13 +212,13 @@ def check_for_deletion(
             # been processed and Jira state
             if (
                 project_data and
-                status.upper() == "ALL_SAMPLES_RELEASED"
+                status.upper() == "ALL SAMPLES RELEASED"
                 and assay in jira_assay
             ):
                 # run has been released and is an assay we automatically
                 # delete => flag for deletion
                 log.info(
-                    f"{project} {created_on} ::: {round(duration.days / 7, 2)}"
+                    f"{run} {created_on} ::: {round(duration.days / 7, 2)}"
                     f" weeks - flagged for deletion"
                 )
 
@@ -225,12 +233,11 @@ def check_for_deletion(
                 # but either can't be processed or was processed but not
                 # released (i.e. low quality) => flag these to delete
                 log.info(
-                    f"{project} {created_on} ::: {round(duration.days / 7, 2)}"
+                    f"{run} {created_on} ::: {round(duration.days / 7, 2)}"
                     f" weeks - uploaded but not processed / released - "
                     "flagged for deletion"
                 )
                 delete = True
-
 
         if delete:
             # enough criteria passed above to delete
@@ -241,21 +248,25 @@ def check_for_deletion(
                 "assay": assay,
                 "created": created_on,
                 "duration": round(duration.days / 7, 2),
+                "uploaded": uploaded,
+                "project": project_data,
                 "old_enough": old_enough,
                 "url": url,
-                "size": run_size,
+                "size": run_size
             }
         else:
             # run old enough to delete but not passed checks => flag
             # up to review manually
             log.info(
-                f"{project} {created_on} ::: {round(duration.days / 7, 2)}"
+                f"{run} {created_on} ::: {round(duration.days / 7, 2)}"
                 f" weeks - run not passed checks - flag for manual review"
             )
 
             manual_review[run] = {
                 "seq": seq,
                 "status": status,
+                "uploaded": uploaded,
+                "project": project_data,
                 "key": key,
                 "assay": assay,
                 "created": created_on,
@@ -265,17 +276,16 @@ def check_for_deletion(
                 "size": run_size,
             }
 
-    if to_delete and today.isoweekday(1):
+    if to_delete and today.isoweekday() == 1:
         # found more than one run to delete and today is Monday =>
         # update the pickle file for deletion on Wednesday
         log.info("Writing runs flagged to delete into pickle file")
         with open(pickle_file, "wb") as f:
             pickle.dump(to_delete, f)
 
-    if to_delete and today.isoweekday(1):
         # alert us that some runs will be deleted on the next Wednesday
         post_message_to_slack(
-            channel="egg-alerts",
+            channel="egg-test",
             token=slack_token,
             data=to_delete,
             debug=debug,
@@ -286,10 +296,12 @@ def check_for_deletion(
             action="delete",
         )
 
-    if manual_review:
-        # found more than one run requiring manually reviewing
+    if manual_review and today.isoweekday() == 1:
+        # found more than one run requiring manually reviewing, only
+        # send alerts for these on a Monday morning to not get too spammy
+        print('posting slack')
         post_message_to_slack(
-            channel="egg-alerts",
+            channel="egg-test",
             token=slack_token,
             data=manual_review,
             debug=debug,
@@ -552,7 +564,7 @@ def main():
         jira_url=env.jira_url
     )
 
-    if today.isoweekday == 3:
+    if today.isoweekday() == 3:
         # Wednesday => run the deletion
         delete_runs(
             pickle_file=env.pickle_file,
