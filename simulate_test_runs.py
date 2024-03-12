@@ -29,14 +29,15 @@ The above needs to be tested on following days of the week:
         - should log issues but not send notifications
 
 """
+from calendar import day_name
 from datetime import datetime
 import os
+from pathlib import Path
 import shutil
 import sys
 
-from faker import Faker
-from unittest.mock import Mock, patch
 from dateutil.relativedelta import relativedelta
+from faker import Faker
 
 from bin.jira import Jira
 from main import check_for_deletion, delete_runs
@@ -67,6 +68,10 @@ def create_test_run_directories() -> None:
 
     for idx, run in enumerate(run_directories, 2):
         os.makedirs(f"simulate_test/{run}", exist_ok=True)
+
+        with open(f"simulate_test/{run}/test.file", "wb") as f:
+            # create test file of 1GB without actually writing any data to disk
+            f.truncate(1024 * 1024 * 1024)
 
         # set run age to be sequentially 1 week older starting at 2 weeks old
         age = (today + relativedelta(weeks=-idx)).timestamp()
@@ -331,20 +336,21 @@ def main():
         debug=True
     )
 
+    # set up test data and Jira tickets
+    create_run_suffix()
+    delete_test_data()  # delete any old test data
+    create_test_run_directories()
+    create_test_logs()
+    issues = create_jira_tickets(jira=jira)
+
     # simulate running the checking daily to check behaviour is correct
     for day in range(1, 8):
-        # set up test data and Jira tickets
-        create_run_suffix()
-        delete_test_data()  # delete any old test data
-        create_test_run_directories()
-        create_test_logs()
-        issues = create_jira_tickets(jira=jira)
-
+        print(f"\nStarting simulated check for {day_name[day - 1]}")
         try:
             simulate_checking(jira=jira, day=day)
         except Exception as err:
             # ensure we always clean up test data
-            print(f"Error occured during checking: {err}")
+            print(f"Error occurred during checking: {err}")
 
             delete_test_data()
             delete_jira_tickets(jira, issues)
@@ -354,9 +360,13 @@ def main():
 
         simulate_deletion(jira=jira, day=day)
 
-        # clean up test data
-        delete_test_data()
-        delete_jira_tickets(jira, issues)
+    print("Final test directory state:")
+    for sub_path in sorted(Path('simulate_test/').rglob('*')):
+            print(f"\t{sub_path}")
+
+    # clean up test data
+    delete_test_data()
+    delete_jira_tickets(jira, issues)
 
 
 if __name__=="__main__":

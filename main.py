@@ -348,7 +348,7 @@ def delete_runs(
 
     # allowed states for Jira tickets to be in for automated deletion
     jira_delete_status = [
-        "ALL_SAMPLES_RELEASED",
+        "ALL SAMPLES RELEASED",
         "DATA CANNOT BE PROCESSED",
         "DATA CANNOT BE RELEASED"
     ]
@@ -503,7 +503,12 @@ def delete_runs(
             sys.exit("END SCRIPT")
 
     # write to /log just for own record
-    with open("/log/monitoring/ansible_delete.txt", "a") as f:
+    if os.path.exists("/log/monitoring"):
+        log_file = "/log/monitoring/ansible_delete.txt"
+    else:
+        log_file = "ansible_delete.txt"
+
+    with open(log_file, "a") as f:
         for deleted in deleted_runs:
             f.write(deleted)
 
