@@ -144,7 +144,7 @@ def post_message_to_slack(
                     f"{duration.days % 7} days ago\n"
                 )
             elif (
-                int(duration.days) > int(n_weeks * 7)
+                int(duration.days) >= int(n_weeks * 7)
             ) and (
                 status.upper().replace('_', ' ') not in jira_delete_status
             ):
@@ -160,7 +160,6 @@ def post_message_to_slack(
                     f">{duration.days // 7} weeks "
                     f"{duration.days % 7} days ago\n"
                 )
-                data_count += 1
             else:
                 # runs have closed Jira ticket status, should have been
                 # pre-filtered before here => log it to check for in future

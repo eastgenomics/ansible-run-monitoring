@@ -87,6 +87,7 @@ def get_env_variables() -> SimpleNamespace:
     selected_env.debug = (
         True if selected_env.debug.lower() == 'true' else False
     )
+    selected_env.ansible_week = int(selected_env.ansible_week)
 
     return selected_env
 
