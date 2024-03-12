@@ -6,7 +6,7 @@ Runs with the following:
         - these should be logged as not old enough and excluded
     - Runs criteria that should be logged as error and flagged for manual review
         - 1 run old enough but no data uploaded (shouldn't happen)
-        - 1 run run old enough and uploaded to stagingArea but no 002 project
+        - 1 run run old enough and uploaded to stagingArea52 but no 002 project
         - 1 run old enough, uploaded and 002 project but ticket not in right state
     - 1 run that is old enough, uploaded, 002 project and ticket released
         - flagged to delete
@@ -276,7 +276,7 @@ def main():
         # check if proxy set, if running locally and not on server this
         # will cause POST requests to time out
         print(
-            f"Note: HTTPS proxy address set: {os.environ.get('HTTPS_PROXY')}"
+            f"NOTE: HTTPS proxy address set: {os.environ.get('HTTPS_PROXY')}"
         )
 
     jira = Jira(
@@ -309,8 +309,7 @@ def main():
             print("\nExiting now due to prior error")
             sys.exit()
 
-        # simulate_deletion(jira=jira, day=day)
-
+    # pretty print to sense check the expected directories are deleted
     print("Final directory state after running for the week:")
     for sub_path in sorted(Path('simulate_test/').rglob('*')):
         print(f"\t{sub_path}")
