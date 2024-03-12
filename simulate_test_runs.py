@@ -155,7 +155,7 @@ def create_jira_tickets(jira) -> list:
 
 def create_run_suffix() -> None:
     """
-    Generate a random word to append to run ID to get a random name,
+    Generate random words to append to run ID to get a random name,
     dumping this into globals for every time it is called as too lazy
     to go back and pass it around
     """
