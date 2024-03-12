@@ -202,7 +202,7 @@ def delete_jira_tickets(jira, issues) -> None:
         jira.delete_issue(issue['id'])
 
 
-def simulate_end_to_end(jira, day) -> None:
+def simulate_end_to_end(day) -> None:
     """
     Run everything to test the checking of runs for deletion
 
@@ -221,8 +221,6 @@ def simulate_end_to_end(jira, day) -> None:
 
     Parameters
     ----------
-    jira : jira.Jira
-        Jira object for Jira queries
     day : int
         day of the week we're checking for
     """
