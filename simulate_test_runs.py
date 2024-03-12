@@ -33,6 +33,7 @@ from calendar import day_name
 from datetime import datetime
 import os
 from pathlib import Path
+import pickle
 import shutil
 import sys
 import traceback
@@ -42,6 +43,7 @@ from dateutil.relativedelta import relativedelta
 from faker import Faker
 
 from bin.jira import Jira
+from bin.util import post_message_to_slack
 import monitor
 
 
@@ -261,13 +263,29 @@ def simulate_end_to_end(day) -> None:
         Mock(today=lambda: datetime(2024, 3, day + 3))
     ).start()
 
+    # mock the function that sends notifications to Slack to check for
+    # how many times it is called without stopping the actual requests
+    # slack_mock = Mock(side_effect=post_simple_message_to_slack)
+    # slack_mock()
+    slack_mock = patch(
+        'monitor.post_message_to_slack',
+        wraps=monitor.post_message_to_slack
+    )
+    slack_mock = slack_mock.start()
+
     # run end to end test including checking and deleting
     monitor.main()
+
+    # check our behaviour is correct and build summary
+    CheckBehaviour(
+        day=day,
+        slack_mock=slack_mock
+    )
 
     patch.stopall()
 
 
-def check_correct_behaviour(day) -> list:
+class CheckBehaviour():
     """
     Check that the correct behaviour is observed for the given day of
     the week, the expected behaviour for each day is as follows:
@@ -288,26 +306,93 @@ def check_correct_behaviour(day) -> list:
     ----------
     day : int
         day of the week
-
-    Returns
-    -------
-    list
-        any errors that have occurred
     """
-    if day == 1:
-        # checks for Monday
+    def __init__(self, day, slack_mock):
+        self.day = day
+        self.slack_mock = slack_mock
+        self.errors = {
+            "Monday": [],
+            "Tuesday": [],
+            "Wednesday": [],
+            "Thursday": [],
+            "Friday": [],
+            "Saturday": [],
+            "Sunday": []
+        }
+
+        if day == 1:
+            self.check_monday()
+        elif day == 2:
+            self.check_tuesday()
+        elif day == 3:
+            self.check_wednesday()
+        elif day in [4, 5, 6, 7]:
+            self.check_thursday_to_sunday()
+        else:
+            # something has gone wrong
+            pass
+
+
+    def check_monday(self) -> None:
+        """
+        Check behaviour for running on Monday
+        """
+        weekday = {day_name[self.day-1]}
+        print(f"Checking behaviour for {weekday}")
+
+        errors = []
+
+        if self.slack_mock.call_count != 2:
+            # we expect 2 calls to send Slack notifications
+            errors.append(
+                "Incorrect number of calls to Slack made: "
+                f"{self.slack_mock.call_count}"
+            )
+
+        # TODO: check logs for contents of slack alert for manual runs
+
+
+        expected_pickle = (
+            f"{os.environ.get('ANSIBLE_PICKLE_PATH')}/ansible_dict.test.pickle"
+        )
+        if not os.path.exists(expected_pickle):
+            # check we have a pickle
+            self.errors[weekday].append(
+                "Pickle file of runs to delete not generated "
+                f"at {expected_pickle}"
+            )
+        else:
+            # check the pickle contains what we expect
+            with open(expected_pickle, "rb") as f:
+                pickle_contents = pickle.load(f)
+
+            pickled_runs = sorted([
+                x.split('_')[0] for x in pickle_contents.keys()
+            ])
+
+            if not pickled_runs == ['run5', 'run6', 'run7']:
+                self.errors[weekday].append(
+                    "Expected runs to delete not in pickle file, runs found: "
+                    f"{pickle_contents.keys()}"
+                )
+
+
+    def check_tuesday(self) -> None:
+        """
+        Check behaviour for running on Tuesday
+        """
         pass
-    elif day == 2:
-        # checks for Tuesday
+
+    def check_wednesday(self) -> None:
+        """
+        Check behaviour for running on Wednesday
+        """
         pass
-    elif day == 3:
-        # checks for Wednesday
-        pass
-    elif day in [4, 5, 6, 7]:
-        # checks for Thursday -> Sunday
-        pass
-    else:
-        # something has gone wrong
+
+    def check_thursday_to_sunday(self) -> None:
+        """
+        Check behaviour for running on Thursday - Sunday
+        """
         pass
 
 
@@ -339,7 +424,7 @@ def main():
     for day in range(1, 8):
         print(f"\nStarting simulated check for {day_name[day - 1]}")
         try:
-            simulate_end_to_end(jira=jira, day=day)
+            simulate_end_to_end(day=day)
         except Exception:
             # ensure we always clean up test data
             print(f"Error occurred during checking")

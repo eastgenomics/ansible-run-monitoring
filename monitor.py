@@ -312,7 +312,6 @@ def check_for_deletion(
     if manual_review and today.isoweekday() == 1:
         # found more than one run requiring manually reviewing, only
         # send alerts for these on a Monday morning to not get too spammy
-        print('posting slack')
         post_message_to_slack(
             channel="egg-test",
             token=slack_token,
