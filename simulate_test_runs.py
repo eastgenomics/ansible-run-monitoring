@@ -89,13 +89,11 @@ def create_test_logs() -> None:
     os.makedirs("simulate_test/logs/seq1", exist_ok=True)
     os.makedirs("simulate_test/logs/seq2", exist_ok=True)
 
-    open(f"simulate_test/logs/seq1/run.run1_{SUFFIX}.lane.all.log", "w").close()
-    open(f"simulate_test/logs/seq1/run.run2_{SUFFIX}.lane.all.log", "w").close()
-    open(f"simulate_test/logs/seq1/run.run3_{SUFFIX}.lane.all.log", "w").close()
-    open(f"simulate_test/logs/seq2/run.run4_{SUFFIX}.lane.all.log", "w").close()
-    open(f"simulate_test/logs/seq2/run.run5_{SUFFIX}.lane.all.log", "w").close()
-    open(f"simulate_test/logs/seq2/run.run6_{SUFFIX}.lane.all.log", "w").close()
-    open(f"simulate_test/logs/seq2/run.run7_{SUFFIX}.lane.all.log", "w").close()
+    for idx in range(0, 8):
+        open(
+            f"simulate_test/logs/seq1/"
+            f"run.run{idx}_{SUFFIX}.lane.all.log", "w"
+        ).close()
 
 
 def create_jira_tickets(jira) -> list:
