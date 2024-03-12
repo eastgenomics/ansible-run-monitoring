@@ -35,13 +35,14 @@ import os
 from pathlib import Path
 import shutil
 import sys
+import traceback
 from unittest.mock import Mock, patch
 
 from dateutil.relativedelta import relativedelta
 from faker import Faker
 
 from bin.jira import Jira
-from main import check_for_deletion, delete_runs
+import monitor
 
 
 # suffix for random naming of test runs
@@ -203,7 +204,7 @@ def delete_jira_tickets(jira, issues) -> None:
         jira.delete_issue(issue['id'])
 
 
-def simulate_checking(jira, day) -> None:
+def simulate_end_to_end(jira, day) -> None:
     """
     Run everything to test the checking of runs for deletion
 
@@ -217,7 +218,8 @@ def simulate_checking(jira, day) -> None:
         - 1 run that failed sequencing and ticket at Data cannot be processed
         - 1 run that failed QC and ticket at Data cannot be released
 
-    The last 3 of the above we expect to flag for deletion
+    The last 3 of the above we expect to flag for deletion on a Monday
+    and then delete on a Wednesday
 
     Parameters
     ----------
@@ -226,19 +228,24 @@ def simulate_checking(jira, day) -> None:
     day : int
         day of the week we're checking for
     """
-    print("Simulating checking of run directories")
-    # things we need to mock to not actually call external resources, since
-    # we're simulating 7 runs there will be 7 returns for each patch
+    print("Simulating end to end running of checking and deletion")
+    # below we will mock the function calls to dxpy to not need to create
+    # a load of test projects, we're simulating 7 runs there will be
+    # 7 returns for each patch
+
+    # patch over logging in to DNAnexus
+    patch('monitor.dx_login', return_value=True).start()
 
     # patch over the check for a run uploaded to StagingArea52
     patch(
-        'main.check_run_uploaded',
+        'monitor.check_run_uploaded',
         side_effect=[True, False, True, True, True, True, True]
     ).start()
 
     # patch over check of 002 project with minimal required describe details
+    # n.b. for runs 2, 3 and 6 we are setting it to have no 002 project
     patch(
-        'main.get_describe_data',
+        'monitor.get_describe_data',
         side_effect=[
             {'describe': {'id': 'project-xxx'}},
             {},
@@ -252,72 +259,16 @@ def simulate_checking(jira, day) -> None:
 
     # patch over datetime to simulate running on each day of the week,
     # since the day param starts at 1 and 04/03/2024 was a Monday, we
-    # will add 3 to each iteration to start from Monday
+    # will add 3 to each iteration to start from Monday -> Sunday
     patch(
-        'main.datetime',
+        'monitor.datetime',
         Mock(today=lambda: datetime(2024, 3, day + 3))
     ).start()
 
-    check_for_deletion(
-        seqs=["seq1", "seq2"],
-        genetics_dir="simulate_test",
-        logs_dir="simulate_test/logs",
-        ansible_week=2,
-        server_testing=False,
-        slack_token=os.environ.get("SLACK_TOKEN"),
-        pickle_file="check.pkl",
-        debug=True,
-        jira_assay=["MYE", "CEN", "TWE"],
-        jira_url=os.environ.get("SLACK_NOTIFY_JIRA_URL"),
-        jira=jira
-    )
+    # run end to end test including checking and deleting
+    monitor.main()
 
     patch.stopall()
-
-
-def simulate_deletion(jira, day) -> None:
-    """
-    Simulate running on a Wednesday and deleting runs according to what
-    is stored in the pickle file
-
-    Parameters
-    ----------
-    jira : jira.Jira
-        Jira object for Jira queries
-    day : int
-        day of the week we are (potentially) deleting for
-    """
-    print("Simulating deletion of run directories")
-
-    # patch over datetime to simulate running on each day of the week,
-    # since the day param starts at 1 and 04/03/2024 was a Monday, we
-    # will add 3 to each iteration to start from Monday
-    patch(
-        'main.datetime',
-        Mock(today=lambda: datetime(2024, 3, day + 3))
-    ).start()
-
-    delete_runs(
-        pickle_file="check.pkl",
-        genetics_dir="simulate_test/",
-        jira_project_id=os.environ.get('JIRA_PROJECT_ID'),
-        jira_reporter_id=os.environ.get('JIRA_REPORTER_ID'),
-        slack_token=os.environ.get('SLACK_TOKEN'),
-        server_testing=os.environ.get('SERVER_TESTING'),
-        debug=os.environ.get('DEBUG'),
-        jira=jira
-    )
-
-    # delete_runs(
-    #     pickle_file="check.pkl",
-    #     genetics_dir="simulate_test/",
-    #     jira_project_id=env.jira_project_id,
-    #     jira_reporter_id=env.jira_reporter_id,
-    #     slack_token=env.slack_token,
-    #     server_testing=env.server_testing,
-    #     debug=env.debug,
-    #     jira=jira
-    # )
 
 
 def main():
@@ -348,22 +299,23 @@ def main():
     for day in range(1, 8):
         print(f"\nStarting simulated check for {day_name[day - 1]}")
         try:
-            simulate_checking(jira=jira, day=day)
-        except Exception as err:
+            simulate_end_to_end(jira=jira, day=day)
+        except Exception:
             # ensure we always clean up test data
-            print(f"Error occurred during checking: {err}")
+            print(f"Error occurred during checking")
+            print(traceback.format_exc())
 
             delete_test_data()
             delete_jira_tickets(jira, issues)
 
-            print("Exiting now due to prior error")
+            print("\nExiting now due to prior error")
             sys.exit()
 
-        simulate_deletion(jira=jira, day=day)
+        # simulate_deletion(jira=jira, day=day)
 
-    print("Final test directory state:")
+    print("Final directory state after running for the week:")
     for sub_path in sorted(Path('simulate_test/').rglob('*')):
-            print(f"\t{sub_path}")
+        print(f"\t{sub_path}")
 
     # clean up test data
     delete_test_data()

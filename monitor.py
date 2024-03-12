@@ -44,33 +44,48 @@ def get_env_variables() -> SimpleNamespace:
     """
     env_variable_mapping = {
         "slack_token": "SLACK_TOKEN",
-        "debug": "ANSIBLE_DEBUG",
-        "server_testing": "ANSIBLE_TESTING",
-        "genetics_dir": "ANSIBLE_GENETICDIR",
-        "logs_dir": "ANSIBLE_LOGSDIR",
-        "ansible_week": "ANSIBLE_WEEK",
-        "pickle_path": "ANSIBLE_PICKLE_PATH",
+        "slack_url": "SLACK_NOTIFY_JIRA_URL",
         "dnanexus_token": "DNANEXUS_TOKEN",
         "jira_token": "JIRA_TOKEN",
         "jira_email": "JIRA_EMAIL",
-        "jira_api_url": "JIRA_API_URL",
-        "slack_url": "SLACK_NOTIFY_URL",
+        "jira_url": "JIRA_API_URL",
+        "jira_assay": "JIRA_ASSAY",
         "jira_project_id": "JIRA_PROJECT_ID",
-        "jira_reporter_id": "JIRA_REPORTER_ID"
+        "jira_reporter_id": "JIRA_REPORTER_ID",
+        "pickle_file": "ANSIBLE_PICKLE_PATH",
+        "genetics_dir": "ANSIBLE_GENETICDIR",
+        "logs_dir": "ANSIBLE_LOGSDIR",
+        "ansible_week": "ANSIBLE_WEEK",
+        "seqs": "ANSIBLE_SEQ",
+        "server_testing": "ANSIBLE_TESTING",
+        "debug": "ANSIBLE_DEBUG"
     }
 
-    selected_env = SimpleNamespace()
+    parsed = {}
     missing = []
 
     for key, value in env_variable_mapping.items():
         if not os.environ.get(value):
             missing.append(value)
         else:
-            selected_env.key = os.environ.get(value)
+            parsed[key] = os.environ.get(value)
+
+    selected_env = SimpleNamespace(**parsed)
+
 
     assert not missing, (
         f"Error - missing one or more environment variables "
         f"{', '.join(missing)}"
+    )
+
+    # fix required types
+    selected_env.seqs = selected_env.seqs.split(',')
+    selected_env.jira_assay = selected_env.jira_assay.split(',')
+    selected_env.server_testing = (
+        True if selected_env.server_testing.lower() == 'true' else False
+    )
+    selected_env.debug = (
+        True if selected_env.debug.lower() == 'true' else False
     )
 
     return selected_env
@@ -514,15 +529,16 @@ def delete_runs(
 
 
 def main():
+    print('starting')
     env = get_env_variables()
 
     # log debug status
     if env.debug:
         log.info("Running in debug mode")
-        env.pickle_path = f"{env.pickle_path}/ansible_dict.test.pickle"
+        env.pickle_file = f"{env.pickle_file}/ansible_dict.test.pickle"
     else:
         log.info("Running in PRODUCTION mode")
-        env.pickle_path = f"{env.pickle_path}/ansible_dict.pickle"
+        env.pickle_file = f"{env.pickle_file}/ansible_dict.pickle"
 
     # dxpy login
     if not dx_login(env.dnanexus_token):
@@ -557,14 +573,14 @@ def main():
     jira = Jira(
         token=env.jira_token,
         email=env.jira_email,
-        api_url=env.jira_api_url,
+        api_url=env.jira_url,
         debug=env.debug
     )
 
     check_for_deletion(
         seqs=env.seqs,
         genetics_dir=env.genetics_dir,
-        logs_dir=env.ogs_dir,
+        logs_dir=env.logs_dir,
         ansible_week=env.ansible_week,
         server_testing=env.server_testing,
         slack_token=env.slack_token,

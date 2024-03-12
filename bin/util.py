@@ -75,7 +75,7 @@ def post_message_to_slack(
 
     # allowed states for Jira tickets to be in for automated deletion
     jira_delete_status = [
-        "ALL_SAMPLES_RELEASED",
+        "ALL SAMPLES RELEASED",
         "DATA CANNOT BE PROCESSED",
         "DATA CANNOT BE RELEASED"
     ]
@@ -143,7 +143,11 @@ def post_message_to_slack(
                     f">{duration.days // 7} weeks "
                     f"{duration.days % 7} days ago\n"
                 )
-            elif duration.days > n_weeks * 7 and status.upper() not in jira_delete_status:
+            elif (
+                int(duration.days) > int(n_weeks * 7)
+            ) and (
+                status.upper().replace('_', ' ') not in jira_delete_status
+            ):
                 # run is old enough to be deleted but ticket
                 # not in done state => alert us
                 final_msg.append(
@@ -402,6 +406,7 @@ def read_or_new_pickle(path: str) -> dict:
     Returns:
         dict: the stored pickle dict
     """
+    log.info(f"Reading from pickle file: {path}")
     if os.path.isfile(path):
         with open(path, "rb") as f:
             pickle_dict = pickle.load(f)
