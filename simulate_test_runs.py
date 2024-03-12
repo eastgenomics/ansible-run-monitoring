@@ -267,6 +267,50 @@ def simulate_end_to_end(day) -> None:
     patch.stopall()
 
 
+def check_correct_behaviour(day) -> list:
+    """
+    Check that the correct behaviour is observed for the given day of
+    the week, the expected behaviour for each day is as follows:
+
+    Monday -> 1 run identified as not old enough, 3 runs identified to
+        delete and 3 identified for manual intervention, Slack alert
+        sent and pickle file written to
+
+    Tuesday -> same as above but no Slack alert and no pickling
+
+    Wednesday -> same checks as above and runs deleted according to
+        pickle file, pickle file then deleted
+
+    Thursday-Sunday -> 1 run identified as not old enough, 3 identified
+        for manual intervention, no Slack alert sent
+
+    Parameters
+    ----------
+    day : int
+        day of the week
+
+    Returns
+    -------
+    list
+        any errors that have occurred
+    """
+    if day == 1:
+        # checks for Monday
+        pass
+    elif day == 2:
+        # checks for Tuesday
+        pass
+    elif day == 3:
+        # checks for Wednesday
+        pass
+    elif day in [4, 5, 6, 7]:
+        # checks for Thursday -> Sunday
+        pass
+    else:
+        # something has gone wrong
+        pass
+
+
 def main():
     print("Starting test run simulation...")
 
