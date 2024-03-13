@@ -31,6 +31,7 @@ The above needs to be tested on following days of the week:
 """
 from calendar import day_name
 from datetime import datetime
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -269,14 +270,19 @@ class CheckBehaviour():
         day of the week
     suffix : str
         randomly generated suffix string used for naming test directories
+    pickle_md5 : str
+        md5 hash of the pickle file before running monitor.main to compare
+        against to test for modifications
     slack_mock : mock.MagicMock
         Mock object for Slack notifications
     """
-    def __init__(self, day, suffix, slack_mock):
+    def __init__(self, day, suffix, pickle_md5, slack_mock):
         self.day = day
         self.suffix = suffix
+        self.prior_pickle_md5 = pickle_md5
         self.slack_mock = slack_mock
 
+        self.new_pickle_md5 = pickle_check()
         self.errors = []
         self.runs_not_to_delete = [f"seq1/run{x}_{suffix}" for x in range(1, 5)]
         self.runs_to_delete = [f"seq2/run{x}_{suffix}" for x in range(5, 8)]
@@ -313,6 +319,7 @@ class CheckBehaviour():
         expected_pickle = (
             f"{os.environ.get('ANSIBLE_PICKLE_PATH')}/ansible_dict.test.pickle"
         )
+
         if not os.path.exists(expected_pickle):
             # check we have a pickle
             self.errors.append(
@@ -356,6 +363,11 @@ class CheckBehaviour():
             # we expect no calls to send Slack notifications
             self.errors.append("Slack notifications wrongly sent")
 
+        if self.check_pickle_modified():
+            self.errors.append(
+                "Pickle file wrongly modified"
+            )
+
 
     def check_wednesday(self) -> None:
         """
@@ -383,6 +395,12 @@ class CheckBehaviour():
             self.errors.append("Slack notifications wrongly sent")
 
 
+        if self.check_pickle_modified():
+            self.errors.append(
+                "Pickle file wrongly modified"
+            )
+
+
     def check_thursday_to_sunday(self) -> None:
         """
         Check behaviour for running on Thursday - Sunday
@@ -401,6 +419,46 @@ class CheckBehaviour():
         if self.slack_mock.call_count != 0:
             # we expect no calls to send Slack notifications
             self.errors.append("Slack notifications wrongly sent")
+
+        if self.check_pickle_modified():
+            self.errors.append(
+                "Pickle file wrongly modified"
+            )
+
+
+    def check_pickle_modified(self) -> bool:
+        """
+        Checks if pickle file was modified by comparing md5 sums
+
+        Returns
+        -------
+        bool
+            True if modified, false if not
+        """
+        if self.prior_pickle_md5 == self.new_pickle_md5:
+            return False
+        else:
+            return True
+
+
+def pickle_check() -> str:
+    """
+    Generate md5sum of the pickle
+
+    Returns
+    -------
+    str
+        str of md5 hash
+    """
+    pickle_file = os.path.join(
+        os.environ.get('ANSIBLE_PICKLE_PATH') + "ansible_dict.test.pickle"
+    )
+
+    if not os.path.exists(pickle_file):
+        return None
+
+    with open(pickle_file, "rb") as f:
+        return hashlib.md5(str.encode(str(f))).hexdigest()
 
 
 def simulate_end_to_end(day, suffix) -> list:
@@ -479,6 +537,9 @@ def simulate_end_to_end(day, suffix) -> list:
     )
     slack_mock = slack_mock.start()
 
+    # generate md5 checksum on pickle file to test if it's been modified
+    pickle_md5 = pickle_check()
+
     # run end to end test including checking and deleting
     monitor.main()
 
@@ -486,7 +547,8 @@ def simulate_end_to_end(day, suffix) -> list:
     checks = CheckBehaviour(
         day=day,
         suffix=suffix,
-        slack_mock=slack_mock
+        slack_mock=slack_mock,
+        pickle_md5=pickle_md5
     )
 
     patch.stopall()
