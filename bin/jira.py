@@ -1,9 +1,11 @@
 import json
+from time import sleep
+from typing import Union
+
 import requests
 from requests.adapters import HTTPAdapter
 from requests.auth import HTTPBasicAuth
 from urllib3.util import Retry
-from typing import Union
 
 
 class Assignee(object):
@@ -399,7 +401,7 @@ class Jira:
 
         payload = json.dumps({"transition": {"id": transition_id}})
         response = self.http.post(url, data=payload, headers=headers, auth=self.auth)
-
+        sleep(1)  # add tiny delay to let Jira catch up on the back end
         if response.status_code == 204:
             return "Request successful"
         else:

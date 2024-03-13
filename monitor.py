@@ -529,7 +529,6 @@ def delete_runs(
 
 
 def main():
-    print('starting')
     env = get_env_variables()
 
     # log debug status

@@ -48,4 +48,5 @@ def get_logger(logger_name):
     logger.addHandler(get_file_handler())
 
     logger.propagate = False
+
     return logger
