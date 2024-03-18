@@ -1,11 +1,11 @@
 import collections
 import datetime as dt
-import dxpy as dx
 import json
 import os
 import pickle
 import requests
 
+import dxpy as dx
 from requests.adapters import HTTPAdapter
 from urllib3.util import Retry
 from dateutil.relativedelta import relativedelta
@@ -16,11 +16,11 @@ log = get_logger("util log")
 
 
 def post_simple_message_to_slack(
-    message: str,
-    channel: str,
-    slack_token: str,
-    debug: bool,
-) -> None:
+        message: str,
+        channel: str,
+        slack_token: str,
+        debug: bool,
+    ) -> None:
 
     if debug:
         channel = "egg-test"
@@ -42,15 +42,16 @@ def post_simple_message_to_slack(
 
 
 def post_message_to_slack(
-    channel: str,
-    token: str,
-    data,
-    debug: bool,
-    usage: tuple = (0, 0, 0),
-    today: dt.datetime = None,
-    jira_url: str = None,
-    action: str = None,
-) -> None:
+        channel: str,
+        token: str,
+        data,
+        debug: bool,
+        n_weeks: int,
+        usage: tuple = (0, 0, 0),
+        today: dt.datetime = None,
+        jira_url: str = None,
+        action: str = None
+    ) -> None:
     """
     Function to send Slack notification
     Inputs:
@@ -61,10 +62,8 @@ def post_message_to_slack(
         usage: disk size usage (tuple)
         today: datetime
         jira_url: jira_slack_notify url
-        notification: True if complicated msg
-        stale: True when sending stale run
+        action: type of message to send (i.e. manual, delete)
     """
-
     log.info(f"Sending POST request to channel: #{channel}")
 
     http = requests.Session()
@@ -74,9 +73,15 @@ def post_message_to_slack(
     if debug:
         channel = "egg-test"
 
-    # complicated msg sending where
-    # msg is a dict which need to be compiled
-    # into multiple Slack msg (if too long)
+    # allowed states for Jira tickets to be in for automated deletion
+    jira_delete_status = [
+        "ALL SAMPLES RELEASED",
+        "DATA CANNOT BE PROCESSED",
+        "DATA CANNOT BE RELEASED"
+    ]
+
+    # complicated msg sending where message is a dict which need to be
+    # compiled into multiple Slack messages (if too long)
     final_msg = []
     data_count = 0
 
@@ -85,77 +90,110 @@ def post_message_to_slack(
 
     marked_delete_size = 0
 
-    if action in ["stale", "delete"]:
-        for run, body in data.items():
-            seq = body["seq"]
-            key = body["key"]
-            status = body["status"]
-            assay = body["assay"]
-            size: int = body["size"]
+    for run, body in data.items():
+        seq = body["seq"]
+        key = body["key"]
+        status = body["status"]
+        assay = body["assay"]
+        size: int = body["size"]
+        uploaded = body["uploaded"]
+        project = body["project"]
 
-            # format message depending on msg type
-            if action == "stale":
-                # send about stale run
-                created_date = body["created"]
-                url = body["url"]
+        # format message depending on msg type
+        if action == "manual":
+            # send about runs that require reviewing
+            created_date = body["created"]
+            url = body["url"]
 
-                created_dt = dt.datetime.strptime(created_date, "%Y-%m-%d")
-                duration = today - created_dt
+            created_dt = dt.datetime.strptime(created_date, "%Y-%m-%d")
+            duration = today - created_dt
 
-                if duration.days > 1 and key is None:
-                    # if there's no jira ticket
-                    # and runs have been more than 1 day
-                    final_msg.append(
-                        f"`/genetics/{seq}/{run}`\n"
-                        "Run is missing associated Jira ticket"
-                    )
-                    final_msg.append(
-                        f"><{url}|DNANexus Link>\n"
-                        f">{duration.days // 7} weeks "
-                        f"{duration.days % 7} days ago\n"
-                    )
-                    data_count += 1
-                elif duration.days > 30 and status.upper() != "ALL SAMPLES RELEASED":
-                    # if ticket is old
-                    # and status still not released
-                    final_msg.append(
-                        f"`/genetics/{seq}/{run}`\n"
-                        "Run still not released "
-                        f"<{jira_url}{key}|{status}>"
-                    )
-                    final_msg.append(
-                        f"><{url}|DNANexus Link>\n"
-                        f">{duration.days // 7} weeks "
-                        f"{duration.days % 7} days ago\n"
-                    )
-                    data_count += 1
-                else:
-                    # runs have jira ticket
-                    # status == all released
-                    continue
-            elif action == "delete":
-                # remind about to-be-deleted runs
-                created_date = body["created"]
-                url = body["url"]
-
-                created_dt = dt.datetime.strptime(created_date, "%Y-%m-%d")
-                duration = today - created_dt
-
+            if duration.days > 1 and key is None:
+                # if there's no Jira ticket and run is older than 1 day
                 final_msg.append(
                     f"`/genetics/{seq}/{run}`\n"
-                    f"<{jira_url}{key}|{status}> | {assay} | {sizeof_fmt(size)}"
+                    "Run is missing associated Jira ticket"
                 )
                 final_msg.append(
                     f"><{url}|DNANexus Link>\n"
-                    f">Created Date: {created_date}\n"
                     f">{duration.days // 7} weeks "
                     f"{duration.days % 7} days ago\n"
                 )
-                data_count += 1
-                marked_delete_size += size
-    else:  # action is "manual intervention"
-        final_msg = data
-        data_count = len(data)
+
+            elif not uploaded:
+                # not found run data in StagingArea52
+                final_msg.append(
+                    f"`/genetics/{seq}/{run}`\n"
+                    "Run does not appear to have uploaded to StagingArea52\n"
+                )
+            elif not project:
+                # does not appear to be a 002 project
+                final_msg.append(
+                     f"`/genetics/{seq}/{run}`\n"
+                     "Run has no 002 project\n"
+                )
+            elif key == "Multiple":
+                # Found more than one Jira ticket for the given run ID
+                final_msg.append(
+                    f"`/genetics/{seq}/{run}`\n"
+                    "Run has more than one matching Jira ticket\n"
+                )
+                final_msg.append(
+                    f"><{url}|DNANexus Link>\n"
+                    f">{duration.days // 7} weeks "
+                    f"{duration.days % 7} days ago\n"
+                )
+            elif (
+                int(duration.days) >= int(n_weeks * 7)
+            ) and (
+                status.upper().replace('_', ' ') not in jira_delete_status
+            ):
+                # run is old enough to be deleted but ticket
+                # not in done state => alert us
+                final_msg.append(
+                    f"`/genetics/{seq}/{run}`\n"
+                    "Jira ticket not in closed state "
+                    f"<{jira_url}{key}|{status}>"
+                )
+                final_msg.append(
+                    f"><{url}|DNANexus Link>\n"
+                    f">{duration.days // 7} weeks "
+                    f"{duration.days % 7} days ago\n"
+                )
+            else:
+                # runs have closed Jira ticket status, should have been
+                # pre-filtered before here => log it to check for in future
+                log.info(
+                    f"Run {run} in manual review list but no alert required, "
+                    "continuing..."
+                )
+                continue
+
+            data_count += 1
+
+        elif action == "delete":
+            # remind about to-be-deleted runs
+            created_date = body["created"]
+            url = body["url"]
+
+            created_dt = dt.datetime.strptime(created_date, "%Y-%m-%d")
+            duration = today - created_dt
+
+            final_msg.append(
+                f"`/genetics/{seq}/{run}`\n"
+                f"<{jira_url}{key}|{status}> | {assay} | {sizeof_fmt(size)}"
+            )
+            final_msg.append(
+                f"><{url}|DNAnexus Link>\n"
+                f">Created Date: {created_date}\n"
+                f">{duration.days // 7} weeks "
+                f"{duration.days % 7} days ago\n"
+            )
+            data_count += 1
+            marked_delete_size += size
+        else:
+            # currently should not reach here since we control the action param
+            raise RuntimeError(f"Action parameter not supported: {action}")
 
     if not final_msg:
         log.info(f"No data to post to Slack for action: {action}")
@@ -165,29 +203,32 @@ def post_message_to_slack(
 
     text_data = "\n".join(final_msg)
 
-    today = get_next_month(today, 1).strftime("%d %b %Y")
+    deletion = (today + dt.timedelta(days=2)).strftime("%d %b %Y")
 
     human_readable_used = sizeof_fmt(gused)
     human_readable_total = sizeof_fmt(gtotal)
 
-    if action == 'stale':
+    # format message text we send dependent on if its a deletion warning
+    # or for runs to manually check on
+    if action == 'delete':
         pretext = (
             ":warning: ansible-run-monitoring: "
-            f"{data_count} stale runs\n"
-            f"genetics usage: {human_readable_used}/{human_readable_total}GB | {gpercent}%"
-        )
-    elif action == 'delete':
-        pretext = (
-            ":warning: ansible-run-monitoring: "
-            f"{data_count} runs that *WILL BE DELETED* on *{today}*\n"
-            f"genetics usage: {human_readable_used}/{human_readable_total} | {gpercent}%\n"
-            f"estimated genetics storage after deletion: {sizeof_fmt(gused - marked_delete_size)} | {(gused - marked_delete_size) / gtotal * 100:.2f}%"
+            f"*{data_count} runs* that *WILL BE DELETED* on *{deletion}*\n"
+            f"Current storage: {human_readable_used}/{human_readable_total} "
+            f"| {gpercent}%\nEstimated storage after deletion: "
+            f"{sizeof_fmt(gused - marked_delete_size)} | "
+            f"{(gused - marked_delete_size) / gtotal * 100:.2f}%"
         )
     elif action == "manual":
         pretext = (
             ":warning: ansible-run-monitoring: "
-            f"{data_count} runs that might require manual intervention!\n"
+            f"*{data_count} runs* that might require manual intervention!\n"
+            f"Current storage: {human_readable_used} / {human_readable_total} "
+            f"| {gpercent}%"
         )
+    else:
+        # currently should not reach here since we control the action param
+        raise RuntimeError(f"Action parameter not supported: {action}")
 
     # number above 7,700 seems to get weird truncation
     if len(text_data) < 7700:
@@ -301,10 +342,11 @@ def dx_login(token: str) -> bool:
         return False
 
 
-def check_project_directory(directory: str) -> bool:
+def check_run_uploaded(directory: str) -> bool:
     """
-    Function to check if project is in staging52.
+    Function to check if run is in stagingArea52 DNAnexus project
     by checking if there's any file returned from that directory
+
     Input:
         directory: directory path
     Return:
@@ -337,8 +379,8 @@ def check_project_directory(directory: str) -> bool:
 
 def get_describe_data(project: str) -> list:
     """
-    Function to see if there is 002 project
-    and its describe data
+    Function to see if there is 002 project and its describe data
+
     Input:
         project: text
     Return:
@@ -351,7 +393,7 @@ def get_describe_data(project: str) -> list:
         )
     )
 
-    return projects[0] if projects else []
+    return projects[0] if projects else {}
 
 
 def read_or_new_pickle(path: str) -> dict:
@@ -363,6 +405,7 @@ def read_or_new_pickle(path: str) -> dict:
     Returns:
         dict: the stored pickle dict
     """
+    log.info(f"Reading from pickle file: {path}")
     if os.path.isfile(path):
         with open(path, "rb") as f:
             pickle_dict = pickle.load(f)
@@ -402,13 +445,23 @@ def get_weekday(date: dt.datetime, day: int, forward: bool = True):
     return date
 
 
-def get_runs(seqs: list, gene_path: str, log_path: str):
+def get_runs(seqs: list, genetic_dir: str, log_path: str):
     """
-    Function to check overlap between genetic_dir and log_dir
+    Function to check overlap between genetic_dir (where the sequencing
+    runs are written to) and log_dir (the logs of dx-streaming-upload)
+
     Input:
         seqs: list of sequencers
         genetic_dir: path to /genetics
         log_dir: path to all log files
+
+    Returns:
+        genetic_directory : list
+            list of identified run directories
+        logs_directory : list
+            list of log files identified
+        tmp_seq : dict
+            mapping of run directory to sequencer ID it came from
     """
     genetic_directory = []
     logs_directory = []
@@ -418,7 +471,7 @@ def get_runs(seqs: list, gene_path: str, log_path: str):
         log.info(f"Loop through {sequencer} started")
 
         # Defining gene and log directories
-        gene_dir = f"{gene_path}/{sequencer}"
+        gene_dir = f"{genetic_dir}/{sequencer}"
         logs_dir = f"{log_path}/{sequencer}"
 
         # list files in directories
