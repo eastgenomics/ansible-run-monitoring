@@ -16,11 +16,11 @@ log = get_logger("util log")
 
 
 def post_simple_message_to_slack(
-        message: str,
-        channel: str,
-        slack_token: str,
-        debug: bool,
-    ) -> None:
+    message: str,
+    channel: str,
+    slack_token: str,
+    debug: bool,
+) -> None:
 
     if debug:
         channel = "egg-test"
@@ -42,16 +42,16 @@ def post_simple_message_to_slack(
 
 
 def post_message_to_slack(
-        channel: str,
-        token: str,
-        data,
-        debug: bool,
-        n_weeks: int,
-        usage: tuple = (0, 0, 0),
-        today: dt.datetime = None,
-        jira_url: str = None,
-        action: str = None
-    ) -> None:
+    channel: str,
+    token: str,
+    data,
+    debug: bool,
+    n_weeks: int,
+    usage: tuple = (0, 0, 0),
+    today: dt.datetime = None,
+    jira_url: str = None,
+    action: str = None,
+) -> None:
     """
     Function to send Slack notification
     Inputs:
@@ -77,7 +77,7 @@ def post_message_to_slack(
     jira_delete_status = [
         "ALL SAMPLES RELEASED",
         "DATA CANNOT BE PROCESSED",
-        "DATA CANNOT BE RELEASED"
+        "DATA CANNOT BE RELEASED",
     ]
 
     # complicated msg sending where message is a dict which need to be
@@ -129,8 +129,7 @@ def post_message_to_slack(
             elif not project:
                 # does not appear to be a 002 project
                 final_msg.append(
-                     f"`/genetics/{seq}/{run}`\n"
-                     "Run has no 002 project\n"
+                    f"`/genetics/{seq}/{run}`\n" "Run has no 002 project\n"
                 )
             elif key == "Multiple":
                 # Found more than one Jira ticket for the given run ID
@@ -143,10 +142,8 @@ def post_message_to_slack(
                     f">{duration.days // 7} weeks "
                     f"{duration.days % 7} days ago\n"
                 )
-            elif (
-                int(duration.days) >= int(n_weeks * 7)
-            ) and (
-                status.upper().replace('_', ' ') not in jira_delete_status
+            elif (int(duration.days) >= int(n_weeks * 7)) and (
+                status.upper().replace("_", " ") not in jira_delete_status
             ):
                 # run is old enough to be deleted but ticket
                 # not in done state => alert us
@@ -210,7 +207,7 @@ def post_message_to_slack(
 
     # format message text we send dependent on if its a deletion warning
     # or for runs to manually check on
-    if action == 'delete':
+    if action == "delete":
         pretext = (
             ":warning: ansible-run-monitoring: "
             f"*{data_count} runs* that *WILL BE DELETED* on *{deletion}*\n"
@@ -484,7 +481,9 @@ def get_runs(seqs: list, genetic_dir: str, log_path: str):
         # Get all files in gene and log dir
         genetic_files = [x.strip() for x in os.listdir(gene_dir)]
         genetic_directory += genetic_files
-        logs_directory += [x.split(".")[1].strip() for x in os.listdir(logs_dir)]
+        logs_directory += [
+            x.split(".")[1].strip() for x in os.listdir(logs_dir)
+        ]
 
         for run in genetic_files:
             tmp_seq[run] = sequencer

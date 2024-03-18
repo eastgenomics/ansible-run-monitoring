@@ -140,7 +140,6 @@ class Jira:
         self.url = f"{api_url}/servicedeskapi/servicedesk"
         self.debug = debug
 
-
     def get_all_service_desk(self):
         """
         Get all service desk on Jira
@@ -148,7 +147,6 @@ class Jira:
         url = self.url
         response = self.http.get(url, headers=self.headers, auth=self.auth)
         return response.json()
-
 
     def get_queues_in_service_desk(self, servicedesk_id):
         """
@@ -158,10 +156,9 @@ class Jira:
         response = self.http.get(url, headers=self.headers, auth=self.auth)
         return response.json()
 
-
     def get_all_issues(
-            self, servicedesk_id: int, queue_id: int, trimmed: bool = False
-        ) -> list:
+        self, servicedesk_id: int, queue_id: int, trimmed: bool = False
+    ) -> list:
         """
         Get all issues of a queue in specified service desk
         Inputs:
@@ -176,7 +173,9 @@ class Jira:
 
         while response.json()["isLastPage"] is False:
             query_url = url + f"?start={count}"
-            response = self.http.get(query_url, headers=self.headers, auth=self.auth)
+            response = self.http.get(
+                query_url, headers=self.headers, auth=self.auth
+            )
 
             if not response.ok:
                 raise Exception(f"Response returned error {response}")
@@ -195,7 +194,6 @@ class Jira:
             return result
         return issues
 
-
     def get_issue(self, issue_id: Union[int, str], trimmed: bool = False):
         """
         Get details of specified issue
@@ -209,8 +207,9 @@ class Jira:
             return Issue(response.json()).__dict__
         return response.json()
 
-
-    def search_issue(self, sequence_name: str, project_name: str = "EBH") -> dict:
+    def search_issue(
+        self, sequence_name: str, project_name: str = "EBH"
+    ) -> dict:
         """
         Search issues based on sequence_name
 
@@ -231,7 +230,6 @@ class Jira:
 
         return response.json()
 
-
     def get_assay(self, issue: dict):
         """
         Get assay options of an issue
@@ -239,7 +237,6 @@ class Jira:
         if "customfield_10070" in issue["fields"]:
             return issue["fields"]["customfield_10070"][0].get("value", None)
         return None
-
 
     def get_issue_detail(self, run: str, server: bool) -> tuple:
         """
@@ -274,9 +271,11 @@ class Jira:
             for result in jira_data["issues"]:
                 # remove those that start with 'RE' (replies)
                 # exclude those that're not sequencing issuetype
-                sequencing_run = result['fields'].get(
-                    "issuetype", {}).get("id", "") == "10179"
-                reply = result['fields']['summary'].startswith("RE")
+                sequencing_run = (
+                    result["fields"].get("issuetype", {}).get("id", "")
+                    == "10179"
+                )
+                reply = result["fields"]["summary"].startswith("RE")
 
                 if sequencing_run and not reply:
                     filtered_issues.append(Issue(result))
@@ -304,17 +303,16 @@ class Jira:
 
         return assay, status, key
 
-
     def create_issue(
-            self,
-            summary: str,
-            issue_id: int,
-            project_id: int,
-            reporter_id: str,
-            priority_id: int,
-            desc: str,
-            assay: bool,
-        ) -> dict:
+        self,
+        summary: str,
+        issue_id: int,
+        project_id: int,
+        reporter_id: str,
+        priority_id: int,
+        desc: str,
+        assay: bool,
+    ) -> dict:
         """
         Create a ticket issue
         Inputs:
@@ -352,7 +350,9 @@ class Jira:
                             "content": [
                                 {
                                     "type": "paragraph",
-                                    "content": [{"text": desc, "type": "text"}],
+                                    "content": [
+                                        {"text": desc, "type": "text"}
+                                    ],
                                 }
                             ],
                         },
@@ -375,7 +375,9 @@ class Jira:
                             "content": [
                                 {
                                     "type": "paragraph",
-                                    "content": [{"text": desc, "type": "text"}],
+                                    "content": [
+                                        {"text": desc, "type": "text"}
+                                    ],
                                 }
                             ],
                         },
@@ -383,10 +385,11 @@ class Jira:
                 }
             )
 
-        response = self.http.post(url, data=payload, headers=headers, auth=self.auth)
+        response = self.http.post(
+            url, data=payload, headers=headers, auth=self.auth
+        )
 
         return response.json()
-
 
     def make_transition(self, issue_id, transition_id):
         """
@@ -400,13 +403,14 @@ class Jira:
         }
 
         payload = json.dumps({"transition": {"id": transition_id}})
-        response = self.http.post(url, data=payload, headers=headers, auth=self.auth)
+        response = self.http.post(
+            url, data=payload, headers=headers, auth=self.auth
+        )
         sleep(1)  # add tiny delay to let Jira catch up on the back end
         if response.status_code == 204:
             return "Request successful"
         else:
             return response.text
-
 
     def delete_issue(self, issue_id):
         """
@@ -419,7 +423,6 @@ class Jira:
             return "Request successful"
         else:
             return response.text
-
 
     def get_available_transitions(self, issue_id):
         """
