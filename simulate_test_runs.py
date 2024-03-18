@@ -81,16 +81,18 @@ class SetUp:
 
         os.makedirs("simulate_test", exist_ok=True)
 
-        today = datetime.today()
+        # in simulate_end_to_end() we patch over datetime.today() in
+        # monitor.main as starting from 4/3/2024 => we will create runs
+        # being sequentially one week older from here
+        today = datetime(2024, 3, 4)
 
-        for idx, run in enumerate(run_directories, 2):
+        for idx, run in enumerate(run_directories, 1):
             os.makedirs(f"simulate_test/{run}", exist_ok=True)
 
             with open(f"simulate_test/{run}/test.file", "wb") as f:
                 # create test file of 1GB without actually writing any data to disk
                 f.truncate(1024 * 1024 * 1024)
 
-            # set run age to be sequentially 1 week older starting at 2 weeks old
             age = (today + relativedelta(weeks=-idx)).timestamp()
             os.utime(f"simulate_test/{run}", (age, age))
 
