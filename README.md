@@ -27,7 +27,12 @@ Run `docker build -t <image name> .`
 
 ## Running the Container
 ```
-docker run --env-file <path to config> -v <path to /genetics>:/genetics -v <path to /var/log/dx-streaming-upload>:/log/dx-streaming-upload -v <path to /var/log/monitoring>:/log/monitoring <image name:tag>
+docker run \
+    --env-file <path to config> \
+    -v <path to /genetics>:/genetics \
+    -v <path to /var/log/dx-streaming-upload>:/log/dx-streaming-upload \
+    -v <path to /var/log/monitoring>:/log/monitoring \
+    <image name:tag> monitor.py
 ```
 
 ## Config Env Variables
@@ -67,22 +72,6 @@ Log file (``` ansible-run-monitoring.log ```) will be stored in ``` /log/monitor
 Cron scheduled to run the script daily
 
 
-## Unit Testing
-
-`Dockerfile.test` has been provided.
-
-```
-# Build the image
-docker build -t ansible:test -f Dockerfile.test .
-
-# Run a mock test
-# Require mounting of /log/monitoring for storing memory, /genetics for mock create runs in /genetics directory
-docker run --env-file <path to .env file> -v <path to /test/log/monitoring>:/log/monitoring -v <path to /test/genetics>:/genetics ansible:test /bin/bash -c "python -u mock.py && python -u main.py"
-
-# Run unit test
-docker run --env-file <path to .env file> ansible:test
-```
-
 ## Simulated Testing
 
 A script has been provided to test running of the monitoring on each day of the week to check the observed behaviour is as expected. This creates local test directories and Jira tickets, runs the simulated checks and then clears up the test data. The following test runs and expected behaviour is set up:
@@ -98,6 +87,16 @@ A script has been provided to test running of the monitoring on each day of the 
 A Slack alert should be observed once for runs 2, 3 and 4 for manual intervention and once for runs 5, 6 and 7 for deletion. Deletion will then run on the simulated Wednesday for runs 5, 6 and 7 then nothing else external should happen for Thursday - Sunday aside from running of the script and logging.
 
 The same environment variables as listed above are required, and `ANSIBLE_WEEK` should be set to 2 to run the test.
+
+To run the simulated testing inside a Docker container:
+```
+docker run \
+    --env-file <path to config> \
+    -v <path to /genetics>:/genetics \
+    -v <path to /var/log/dx-streaming-upload>:/log/dx-streaming-upload \
+    -v <path to /var/log/monitoring>:/log/monitoring \
+    <image name:tag> simulate_test_runs.py
+```
 
 
 ## Error
