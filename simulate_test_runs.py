@@ -93,6 +93,7 @@ class SetUp:
                 # create test file of 1GB without actually writing any data to disk
                 f.truncate(1024 * 1024 * 1024)
 
+            # set run age to be sequentially 1 week older starting at 1 weeks old
             age = (today + relativedelta(weeks=-idx)).timestamp()
             os.utime(f"simulate_test/{run}", (age, age))
 
