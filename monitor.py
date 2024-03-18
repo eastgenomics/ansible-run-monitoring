@@ -79,8 +79,11 @@ def get_env_variables() -> SimpleNamespace:
     )
 
     # fix required types
-    selected_env.seqs = selected_env.seqs.split(',')
-    selected_env.jira_assay = selected_env.jira_assay.split(',')
+    selected_env.seqs = [x.strip() for x in selected_env.seqs.split(',')]
+    selected_env.jira_assay = [
+        x.strip() for x in selected_env.jira_assay.split(',')
+    ]
+
     selected_env.server_testing = (
         True if selected_env.server_testing.lower() == 'true' else False
     )
@@ -406,8 +409,6 @@ def delete_runs(
                 f"deletion of {genetics_dir}/{seq}/{run}")
             continue
 
-        deleted_runs.append(f"{genetics_dir}/{seq}/{run} {today}\n")
-
         try:
             log.info(f"DELETING {genetics_dir}/{seq}/{run}")
             shutil.rmtree(f"{genetics_dir}/{seq}/{run}")
@@ -419,6 +420,9 @@ def delete_runs(
                 "assay": assay,
                 "size": size
             }
+
+            deleted_runs.append(f"{genetics_dir}/{seq}/{run} {today}\n")
+
         except OSError as err:
             log.error(
                 f"Error in deleting {genetics_dir}/{seq}/{run}. Stopping "
