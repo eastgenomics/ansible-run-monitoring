@@ -49,10 +49,11 @@ from bin.util import post_message_to_slack
 import monitor
 
 
-class SetUp():
+class SetUp:
     """
     Simple methods for setting up required test data structure
     """
+
     def __init__(self, jira):
         self.jira = jira
         self.issues = []
@@ -62,7 +63,6 @@ class SetUp():
         self.test_run_directories()
         self.test_logs()
         self.jira_tickets()
-
 
     def test_run_directories(self) -> None:
         """
@@ -94,7 +94,6 @@ class SetUp():
             age = (today + relativedelta(weeks=-idx)).timestamp()
             os.utime(f"simulate_test/{run}", (age, age))
 
-
     def test_logs(self) -> None:
         """
         Create required log files as generated from dx-streaming-upload, these
@@ -105,12 +104,12 @@ class SetUp():
         os.makedirs("simulate_test/logs/seq2", exist_ok=True)
 
         for idx in range(0, 8):
-            seq = 'seq1' if idx <5 else 'seq2'
+            seq = "seq1" if idx < 5 else "seq2"
             open(
                 f"simulate_test/logs/{seq}/"
-                f"run.run{idx}_{self.suffix}.lane.all.log", "w"
+                f"run.run{idx}_{self.suffix}.lane.all.log",
+                "w",
             ).close()
-
 
     def jira_tickets(self) -> list:
         """
@@ -145,8 +144,8 @@ class SetUp():
             f"run3_{self.suffix}": None,
             f"run4_{self.suffix}": None,
             f"run5_{self.suffix}": [31, 41, 21],  # Data released
-            f"run6_{self.suffix}": [31, 61],      # Data cannot be processed
-            f"run7_{self.suffix}": [31, 41, 71]   # Data cannot be released
+            f"run6_{self.suffix}": [31, 61],  # Data cannot be processed
+            f"run7_{self.suffix}": [31, 41, 71],  # Data cannot be released
         }
 
         created_issues = []
@@ -155,7 +154,7 @@ class SetUp():
             print(f"Creating Jira issue for {run}")
             issue = self.jira.create_issue(
                 summary=run,
-                issue_id=10179,    # issue type
+                issue_id=10179,  # issue type
                 project_id=10042,  # EBHD id
                 reporter_id="5c0e8b8d53cd043c8c6149eb",
                 priority_id=3,
@@ -167,21 +166,19 @@ class SetUp():
             if state:
                 for transition in state:
                     self.jira.make_transition(
-                        issue_id=issue['id'],
-                        transition_id=transition
+                        issue_id=issue["id"], transition_id=transition
                     )
 
         self.issues = created_issues
-
 
     def run_suffix(self) -> None:
         """
         Generate random words to append to run ID to get a random name
         """
-        self.suffix = '_'.join([Faker().word() for x in range(3)])
+        self.suffix = "_".join([Faker().word() for x in range(3)])
 
 
-class CleanUp():
+class CleanUp:
     """
     Simple methods for cleaning up test data
 
@@ -192,6 +189,7 @@ class CleanUp():
     ids : list
         list of created Jira issue IDs
     """
+
     def __init__(self, jira=None, issues=None):
         self.jira = jira
         self.issues = issues
@@ -202,15 +200,13 @@ class CleanUp():
         self.recorded_deletion_log()
         self.jira_tickets()
 
-
     def test_data(self) -> None:
         """
         Check for test data directories and pickle file to clean up
         """
         print("Cleaning up test data directories")
-        if os.path.exists('simulate_test'):
-            shutil.rmtree('simulate_test')
-
+        if os.path.exists("simulate_test"):
+            shutil.rmtree("simulate_test")
 
     def pickle(self) -> None:
         """
@@ -219,14 +215,12 @@ class CleanUp():
         if os.path.exists("check.pkl"):
             os.remove("check.pkl")
 
-
     def recorded_deletion_log(self) -> None:
         """
         Delete output log of deleted run directories
         """
         if os.path.exists("ansible_delete.txt"):
             os.remove("ansible_delete.txt")
-
 
     def logging_log(self) -> None:
         """
@@ -236,7 +230,6 @@ class CleanUp():
         if os.path.exists("ansible-run-monitoring.log"):
             os.remove("ansible-run-monitoring.log")
 
-
     def jira_tickets(self) -> None:
         """
         Delete Jira issue tickets we created as part of testing
@@ -244,10 +237,10 @@ class CleanUp():
         if self.jira and self.issues:
             print("Deleting test Jira issues")
             for issue in self.issues:
-                self.jira.delete_issue(issue['id'])
+                self.jira.delete_issue(issue["id"])
 
 
-class CheckBehaviour():
+class CheckBehaviour:
     """
     Check that the correct behaviour is observed for the given day of
     the week, the expected behaviour for each day is as follows:
@@ -276,6 +269,7 @@ class CheckBehaviour():
     slack_mock : mock.MagicMock
         Mock object for Slack notifications
     """
+
     def __init__(self, day, suffix, pickle_md5, slack_mock):
         self.day = day
         self.suffix = suffix
@@ -284,7 +278,9 @@ class CheckBehaviour():
 
         self.new_pickle_md5 = pickle_check()
         self.errors = []
-        self.runs_not_to_delete = [f"seq1/run{x}_{suffix}" for x in range(1, 5)]
+        self.runs_not_to_delete = [
+            f"seq1/run{x}_{suffix}" for x in range(1, 5)
+        ]
         self.runs_to_delete = [f"seq2/run{x}_{suffix}" for x in range(5, 8)]
 
         if day == 1:
@@ -298,7 +294,6 @@ class CheckBehaviour():
         else:
             # something has gone wrong
             print(f"Checking invalid day: {day}")
-
 
     def check_monday(self) -> None:
         """
@@ -332,16 +327,15 @@ class CheckBehaviour():
             with open(expected_pickle, "rb") as f:
                 pickle_contents = pickle.load(f)
 
-            pickled_runs = sorted([
-                x.split('_')[0] for x in pickle_contents.keys()
-            ])
+            pickled_runs = sorted(
+                [x.split("_")[0] for x in pickle_contents.keys()]
+            )
 
-            if not pickled_runs == ['run5', 'run6', 'run7']:
+            if not pickled_runs == ["run5", "run6", "run7"]:
                 self.errors.append(
                     "Expected runs to delete not in pickle file, runs found: "
                     f"{pickle_contents.keys()}"
                 )
-
 
     def check_tuesday(self) -> None:
         """
@@ -364,10 +358,7 @@ class CheckBehaviour():
             self.errors.append("Slack notifications wrongly sent")
 
         if self.check_pickle_modified():
-            self.errors.append(
-                "Pickle file wrongly modified"
-            )
-
+            self.errors.append("Pickle file wrongly modified")
 
     def check_wednesday(self) -> None:
         """
@@ -394,12 +385,8 @@ class CheckBehaviour():
             # we expect no calls to send Slack notifications
             self.errors.append("Slack notifications wrongly sent")
 
-
         if self.check_pickle_modified():
-            self.errors.append(
-                "Pickle file wrongly modified"
-            )
-
+            self.errors.append("Pickle file wrongly modified")
 
     def check_thursday_to_sunday(self) -> None:
         """
@@ -421,10 +408,7 @@ class CheckBehaviour():
             self.errors.append("Slack notifications wrongly sent")
 
         if self.check_pickle_modified():
-            self.errors.append(
-                "Pickle file wrongly modified"
-            )
-
+            self.errors.append("Pickle file wrongly modified")
 
     def check_pickle_modified(self) -> bool:
         """
@@ -451,7 +435,7 @@ def pickle_check() -> str:
         str of md5 hash
     """
     pickle_file = os.path.join(
-        os.environ.get('ANSIBLE_PICKLE_PATH') + "ansible_dict.test.pickle"
+        os.environ.get("ANSIBLE_PICKLE_PATH") + "ansible_dict.test.pickle"
     )
 
     if not os.path.exists(pickle_file):
@@ -496,35 +480,34 @@ def simulate_end_to_end(day, suffix) -> list:
     # 7 returns for each patch
 
     # patch over logging in to DNAnexus
-    patch('monitor.dx_login', return_value=True).start()
+    patch("monitor.dx_login", return_value=True).start()
 
     # patch over the check for a run uploaded to StagingArea52
     patch(
-        'monitor.check_run_uploaded',
-        side_effect=[True, False, True, True, True, True, True]
+        "monitor.check_run_uploaded",
+        side_effect=[True, False, True, True, True, True, True],
     ).start()
 
     # patch over check of 002 project with minimal required describe details
     # n.b. for runs 2, 3 and 6 we are setting it to have no 002 project
     patch(
-        'monitor.get_describe_data',
+        "monitor.get_describe_data",
         side_effect=[
-            {'describe': {'id': 'project-xxx'}},
+            {"describe": {"id": "project-xxx"}},
             {},
             {},
-            {'describe': {'id': 'project-xxx'}},
-            {'describe': {'id': 'project-xxx'}},
+            {"describe": {"id": "project-xxx"}},
+            {"describe": {"id": "project-xxx"}},
             {},
-            {'describe': {'id': 'project-xxx'}}
-        ]
+            {"describe": {"id": "project-xxx"}},
+        ],
     ).start()
 
     # patch over datetime to simulate running on each day of the week,
     # since the day param starts at 1 and 04/03/2024 was a Monday, we
     # will add 3 to each iteration to start from Monday -> Sunday
     patch(
-        'monitor.datetime',
-        Mock(today=lambda: datetime(2024, 3, day + 3))
+        "monitor.datetime", Mock(today=lambda: datetime(2024, 3, day + 3))
     ).start()
 
     # mock the function that sends notifications to Slack to check for
@@ -532,8 +515,7 @@ def simulate_end_to_end(day, suffix) -> list:
     # slack_mock = Mock(side_effect=post_simple_message_to_slack)
     # slack_mock()
     slack_mock = patch(
-        'monitor.post_message_to_slack',
-        wraps=monitor.post_message_to_slack
+        "monitor.post_message_to_slack", wraps=monitor.post_message_to_slack
     )
     slack_mock = slack_mock.start()
 
@@ -545,10 +527,7 @@ def simulate_end_to_end(day, suffix) -> list:
 
     # check our behaviour is correct and build summary
     checks = CheckBehaviour(
-        day=day,
-        suffix=suffix,
-        slack_mock=slack_mock,
-        pickle_md5=pickle_md5
+        day=day, suffix=suffix, slack_mock=slack_mock, pickle_md5=pickle_md5
     )
 
     patch.stopall()
@@ -559,7 +538,7 @@ def simulate_end_to_end(day, suffix) -> list:
 def main():
     print("Starting test run simulation...")
 
-    if os.environ.get('HTTPS_PROXY'):
+    if os.environ.get("HTTPS_PROXY"):
         # check if proxy set, if running locally and not on server this
         # will cause POST requests to time out
         print(
@@ -570,7 +549,7 @@ def main():
         token=os.environ.get("JIRA_TOKEN"),
         email=os.environ.get("JIRA_EMAIL"),
         api_url=os.environ.get("JIRA_API_URL"),
-        debug=True
+        debug=True,
     )
 
     # delete any old test data
@@ -586,10 +565,9 @@ def main():
         print(f"\nStarting simulated check for {day_name[day - 1]}")
         try:
             daily_errors = simulate_end_to_end(
-                day=day,
-                suffix=test_data.suffix
+                day=day, suffix=test_data.suffix
             )
-            errors[day_name[day -1]] = daily_errors
+            errors[day_name[day - 1]] = daily_errors
         except Exception:
             # ensure we always clean up test data
             print(f"Error occurred during checking")
@@ -602,7 +580,7 @@ def main():
 
     # pretty print to sense check the expected directories are deleted
     print("Final directory state after running for the week:")
-    for sub_path in sorted(Path('simulate_test/').rglob('*')):
+    for sub_path in sorted(Path("simulate_test/").rglob("*")):
         print(f"\t{sub_path}")
 
     # clean up test data
@@ -613,10 +591,10 @@ def main():
         print(f"\nOne or more errors occurred from daily checks")
         for day, error in errors.items():
             if error:
-                print(f"{day}:", json.dumps(error, indent='  '))
+                print(f"{day}:", json.dumps(error, indent="  "))
     else:
         print("\nDaily checking worked as expected, no errors detected")
 
 
-if __name__=="__main__":
+if __name__ == "__main__":
     main()

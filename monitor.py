@@ -58,7 +58,7 @@ def get_env_variables() -> SimpleNamespace:
         "ansible_week": "ANSIBLE_WEEK",
         "seqs": "ANSIBLE_SEQ",
         "server_testing": "ANSIBLE_TESTING",
-        "debug": "ANSIBLE_DEBUG"
+        "debug": "ANSIBLE_DEBUG",
     }
 
     parsed = {}
@@ -72,23 +72,22 @@ def get_env_variables() -> SimpleNamespace:
 
     selected_env = SimpleNamespace(**parsed)
 
-
     assert not missing, (
         f"Error - missing one or more environment variables "
         f"{', '.join(missing)}"
     )
 
     # fix required types
-    selected_env.seqs = [x.strip() for x in selected_env.seqs.split(',')]
+    selected_env.seqs = [x.strip() for x in selected_env.seqs.split(",")]
     selected_env.jira_assay = [
-        x.strip() for x in selected_env.jira_assay.split(',')
+        x.strip() for x in selected_env.jira_assay.split(",")
     ]
 
     selected_env.server_testing = (
-        True if selected_env.server_testing.lower() == 'true' else False
+        True if selected_env.server_testing.lower() == "true" else False
     )
     selected_env.debug = (
-        True if selected_env.debug.lower() == 'true' else False
+        True if selected_env.debug.lower() == "true" else False
     )
     selected_env.ansible_week = int(selected_env.ansible_week)
 
@@ -96,18 +95,18 @@ def get_env_variables() -> SimpleNamespace:
 
 
 def check_for_deletion(
-        seqs,
-        genetics_dir,
-        logs_dir,
-        ansible_week,
-        server_testing,
-        slack_token,
-        pickle_file,
-        debug,
-        jira_assay,
-        jira_url,
-        jira
-    ) -> None:
+    seqs,
+    genetics_dir,
+    logs_dir,
+    ansible_week,
+    server_testing,
+    slack_token,
+    pickle_file,
+    debug,
+    jira_assay,
+    jira_url,
+    jira,
+) -> None:
     """
     Check for runs to delete, will be called everyday but and check for
     runs that can be automatically deleted against the following criteria:
@@ -187,8 +186,11 @@ def check_for_deletion(
 
         if project_data:
             # found 002 project => generate link
-            trimmed_id = project_data.get(
-                'describe', '').get('id', '').replace('project-', '')
+            trimmed_id = (
+                project_data.get("describe", "")
+                .get("id", "")
+                .replace("project-", "")
+            )
             url = (
                 f"https://platform.dnanexus.com/panx/projects/"
                 f"{trimmed_id}/data"
@@ -227,8 +229,8 @@ def check_for_deletion(
             # found uploaded run in StagingArea52 => check it is has
             # been processed and Jira state
             if (
-                project_data and
-                status.upper() == "ALL SAMPLES RELEASED"
+                project_data
+                and status.upper() == "ALL SAMPLES RELEASED"
                 and assay in jira_assay
             ):
                 # run has been released and is an assay we automatically
@@ -240,10 +242,9 @@ def check_for_deletion(
 
                 delete = True
             elif (
-                status.upper() in [
-                    "DATA CANNOT BE PROCESSED", "DATA CANNOT BE RELEASED"
-                ] and
-                assay in jira_assay
+                status.upper()
+                in ["DATA CANNOT BE PROCESSED", "DATA CANNOT BE RELEASED"]
+                and assay in jira_assay
             ):
                 # run uploaded and is an assay we automatically delete
                 # but either can't be processed or was processed but not
@@ -268,7 +269,7 @@ def check_for_deletion(
                 "project": project_data,
                 "old_enough": old_enough,
                 "url": url,
-                "size": run_size
+                "size": run_size,
             }
         else:
             # run old enough to delete but not passed checks => flag
@@ -329,15 +330,15 @@ def check_for_deletion(
 
 
 def delete_runs(
-        pickle_file,
-        genetics_dir,
-        jira_project_id,
-        jira_reporter_id,
-        slack_token,
-        server_testing,
-        debug,
-        jira
-    ) -> None:
+    pickle_file,
+    genetics_dir,
+    jira_project_id,
+    jira_reporter_id,
+    slack_token,
+    server_testing,
+    debug,
+    jira,
+) -> None:
     """
     Delete the specified runs in the pickle file that have been
     previously checked and flagged for automatic deletion
@@ -368,7 +369,7 @@ def delete_runs(
     jira_delete_status = [
         "ALL SAMPLES RELEASED",
         "DATA CANNOT BE PROCESSED",
-        "DATA CANNOT BE RELEASED"
+        "DATA CANNOT BE RELEASED",
     ]
 
     # get /genetic disk usage stat
@@ -406,7 +407,8 @@ def delete_runs(
         if status.upper() not in jira_delete_status:
             log.info(
                 f"Jira status not valid to delete ({status}) - skipping "
-                f"deletion of {genetics_dir}/{seq}/{run}")
+                f"deletion of {genetics_dir}/{seq}/{run}"
+            )
             continue
 
         try:
@@ -418,7 +420,7 @@ def delete_runs(
                 "status": status,
                 "key": key,
                 "assay": assay,
-                "size": size
+                "size": size,
             }
 
             deleted_runs.append(f"{genetics_dir}/{seq}/{run} {today}\n")
@@ -489,7 +491,9 @@ def delete_runs(
         # helpdesk 10042 for debug 10040 for prod
 
         log.info("Creating Jira acknowledgement issue")
-        issue_title = f"{jira_date} Automated deletion of runs from ansible server"
+        issue_title = (
+            f"{jira_date} Automated deletion of runs from ansible server"
+        )
         response = jira.create_issue(
             summary=issue_title,
             issue_id=10124,
@@ -508,7 +512,10 @@ def delete_runs(
             # if jira ticket creation issue
             # send msg to Slack - stop script
             err_msg = response["errors"]
-            msg = ":warning:" "ANSIBLE-MONITORING: ERROR with creating Jira ticket!"
+            msg = (
+                ":warning:"
+                "ANSIBLE-MONITORING: ERROR with creating Jira ticket!"
+            )
             msg += f"\n`{err_msg}`"
 
             post_simple_message_to_slack(
@@ -577,7 +584,7 @@ def main():
         token=env.jira_token,
         email=env.jira_email,
         api_url=env.jira_url,
-        debug=env.debug
+        debug=env.debug,
     )
 
     check_for_deletion(
@@ -591,7 +598,7 @@ def main():
         debug=env.debug,
         jira=jira,
         jira_assay=env.jira_assay,
-        jira_url=env.jira_url
+        jira_url=env.jira_url,
     )
 
     delete_runs(
@@ -602,7 +609,7 @@ def main():
         slack_token=env.slack_token,
         server_testing=env.server_testing,
         debug=env.debug,
-        jira=jira
+        jira=jira,
     )
 
 
