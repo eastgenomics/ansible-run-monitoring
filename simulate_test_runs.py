@@ -45,7 +45,6 @@ from dateutil.relativedelta import relativedelta
 from faker import Faker
 
 from bin.jira import Jira
-from bin.util import post_message_to_slack
 import monitor
 
 
