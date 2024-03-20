@@ -411,6 +411,28 @@ def delete_runs(
             )
             continue
 
+        run_path = os.path.join(genetics_dir, seq, run)
+
+        if not seq or not run or not os.path.exists(run_path):
+            # sense check that the full path to the run exists so we
+            # don't accidentally try delete the whole of /genetics
+            error = (
+                ":warning: ANSIBLE-MONITORING: Error in deleting run, full "
+                f"path does not seem valid!\nSeqeuncer dir: {seq}\nRun dir: "
+                f"{run}\nFull path: {run_path}. Stopping further deletion"
+            )
+
+            log.error(error)
+
+            post_simple_message_to_slack(
+                message=error,
+                channel="egg-test",
+                slack_token=slack_token,
+                debug=debug,
+            )
+
+            sys.exit("END SCRIPT")
+
         try:
             log.info(f"DELETING {genetics_dir}/{seq}/{run}")
             shutil.rmtree(f"{genetics_dir}/{seq}/{run}")
