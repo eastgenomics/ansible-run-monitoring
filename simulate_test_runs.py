@@ -147,7 +147,7 @@ class SetUp:
             f"run3_{self.suffix}": None,
             f"run4_{self.suffix}": None,
             f"run5_{self.suffix}": [31, 41, 21],  # Data released
-            f"run6_{self.suffix}": [31, 61],  # Data cannot be processed
+            f"run6_{self.suffix}": [31, 61],      # Data cannot be processed
             f"run7_{self.suffix}": [31, 41, 71],  # Data cannot be released
         }
 
@@ -157,7 +157,7 @@ class SetUp:
             print(f"Creating Jira issue for {run}")
             issue = self.jira.create_issue(
                 summary=run,
-                issue_id=10179,  # issue type
+                issue_id=10179,    # issue type
                 project_id=10042,  # EBHD id
                 reporter_id="5c0e8b8d53cd043c8c6149eb",
                 priority_id=3,
@@ -311,8 +311,6 @@ class CheckBehaviour:
                 "Incorrect number of calls to Slack made: "
                 f"{self.slack_mock.call_count}"
             )
-
-        # TODO: check for contents of what is sent in Slack alert
 
         expected_pickle = (
             f"{os.environ.get('ANSIBLE_PICKLE_PATH')}/ansible_dict.test.pickle"
@@ -515,8 +513,6 @@ def simulate_end_to_end(day, suffix) -> list:
 
     # mock the function that sends notifications to Slack to check for
     # how many times it is called without stopping the actual requests
-    # slack_mock = Mock(side_effect=post_simple_message_to_slack)
-    # slack_mock()
     slack_mock = patch(
         "monitor.post_message_to_slack", wraps=monitor.post_message_to_slack
     )
