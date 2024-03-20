@@ -302,7 +302,7 @@ def check_for_deletion(
 
         # alert us that some runs will be deleted on the next Wednesday
         post_message_to_slack(
-            channel="egg-test",
+            channel="egg-alerts",
             token=slack_token,
             data=to_delete,
             debug=debug,
@@ -317,7 +317,7 @@ def check_for_deletion(
         # found more than one run requiring manually reviewing, only
         # send alerts for these on a Monday morning to not get too spammy
         post_message_to_slack(
-            channel="egg-test",
+            channel="egg-alerts",
             token=slack_token,
             data=manual_review,
             debug=debug,
@@ -426,7 +426,7 @@ def delete_runs(
 
             post_simple_message_to_slack(
                 message=error,
-                channel="egg-test",
+                channel="egg-alerts",
                 slack_token=slack_token,
                 debug=debug,
             )
