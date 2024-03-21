@@ -302,7 +302,7 @@ def check_for_deletion(
 
         # alert us that some runs will be deleted on the next Wednesday
         post_message_to_slack(
-            channel="egg-test",
+            channel="egg-alerts",
             token=slack_token,
             data=to_delete,
             debug=debug,
@@ -317,7 +317,7 @@ def check_for_deletion(
         # found more than one run requiring manually reviewing, only
         # send alerts for these on a Monday morning to not get too spammy
         post_message_to_slack(
-            channel="egg-test",
+            channel="egg-alerts",
             token=slack_token,
             data=manual_review,
             debug=debug,
@@ -410,6 +410,28 @@ def delete_runs(
                 f"deletion of {genetics_dir}/{seq}/{run}"
             )
             continue
+
+        run_path = os.path.join(genetics_dir, seq, run)
+
+        if not seq or not run or not os.path.exists(run_path):
+            # sense check that the full path to the run exists so we
+            # don't accidentally try delete the whole of /genetics
+            error = (
+                ":warning: ANSIBLE-MONITORING: Error in deleting run, full "
+                f"path does not seem valid!\nSeqeuncer dir: {seq}\nRun dir: "
+                f"{run}\nFull path: {run_path}. Stopping further deletion"
+            )
+
+            log.error(error)
+
+            post_simple_message_to_slack(
+                message=error,
+                channel="egg-alerts",
+                slack_token=slack_token,
+                debug=debug,
+            )
+
+            sys.exit("END SCRIPT")
 
         try:
             log.info(f"DELETING {genetics_dir}/{seq}/{run}")
