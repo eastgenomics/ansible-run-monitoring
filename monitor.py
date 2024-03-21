@@ -44,6 +44,7 @@ def get_env_variables() -> SimpleNamespace:
     """
     env_variable_mapping = {
         "slack_token": "SLACK_TOKEN",
+        "slack_channel": "SLACK_CHANNEL",
         "slack_url": "SLACK_NOTIFY_JIRA_URL",
         "dnanexus_token": "DNANEXUS_TOKEN",
         "jira_token": "JIRA_TOKEN",
@@ -101,6 +102,7 @@ def check_for_deletion(
     ansible_week,
     server_testing,
     slack_token,
+    slack_channel,
     pickle_file,
     debug,
     jira_assay,
@@ -136,6 +138,8 @@ def check_for_deletion(
     server_testing : bool(?)
     slack_token : str
         Slack API token
+    slack_channel : str
+        Slack notification channel
     pickle_file : str
         name of pickle file to write runs to delete to
     debug : bool
@@ -335,6 +339,7 @@ def delete_runs(
     jira_project_id,
     jira_reporter_id,
     slack_token,
+    slack_channel,
     server_testing,
     debug,
     jira,
@@ -355,6 +360,8 @@ def delete_runs(
         ID reporting to Jira as
     slack_token : str
         Slack API token
+    slack_channel : str
+        Slack notification channel
     server_testing : bool
         controls if running test
     debug : bool
@@ -426,7 +433,7 @@ def delete_runs(
 
             post_simple_message_to_slack(
                 message=error,
-                channel="egg-alerts",
+                channel=slack_channel,
                 slack_token=slack_token,
                 debug=debug,
             )
@@ -464,7 +471,7 @@ def delete_runs(
 
             post_simple_message_to_slack(
                 message=msg,
-                channel="egg-alerts",
+                channel=slack_channel,
                 slack_token=slack_token,
                 debug=debug,
             )
@@ -542,7 +549,7 @@ def delete_runs(
 
             post_simple_message_to_slack(
                 msg,
-                "egg-alerts",
+                slack_channel,
                 slack_token,
                 debug,
             )
@@ -578,7 +585,7 @@ def main():
 
         post_simple_message_to_slack(
             message,
-            "egg-alerts",
+            env.slack_channel,
             env.slack_token,
             env.debug,
         )
@@ -591,7 +598,7 @@ def main():
 
         post_simple_message_to_slack(
             message,
-            "egg-alerts",
+            env.slack_channel,
             env.slack_token,
             env.debug,
         )
@@ -616,6 +623,7 @@ def main():
         ansible_week=env.ansible_week,
         server_testing=env.server_testing,
         slack_token=env.slack_token,
+        slack_channel=env.slack_channel,
         pickle_file=env.pickle_file,
         debug=env.debug,
         jira=jira,
@@ -629,6 +637,7 @@ def main():
         jira_project_id=env.jira_project_id,
         jira_reporter_id=env.jira_reporter_id,
         slack_token=env.slack_token,
+        slack_channel=env.slack_channel,
         server_testing=env.server_testing,
         debug=env.debug,
         jira=jira,

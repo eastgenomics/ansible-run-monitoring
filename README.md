@@ -56,7 +56,8 @@ docker run \
 - `JIRA_REPORTER_ID`: Jira reporter id for raising Jira issue
 
 - `SLACK_NOTIFY_JIRA_URL`: Jira helpdesk queue url (for direct link to Jira sample ticket)
-- `SLACK_TOKEN`: slack auth token
+- `SLACK_CHANNEL`: Slack channel to send notifications
+- `SLACK_TOKEN`: Slack auth token
 
 
 ## Logging
