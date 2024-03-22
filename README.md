@@ -47,7 +47,8 @@ docker run \
 - `ANSIBLE_SEQ`: sequencing machine, **use comma to include more machines** (e.g. A01295a, A01295b, A01303a,A01303b)
 - `ANSIBLE_PICKLE_PATH`: directory to save pickle file for runs to be deleted e.g `/log/monitoring`
 - `ANSIBLE_JIRA_ASSAY`: e.g. CEN,TWE,TSO500,MYE **use comma to include multiple assays**
-- `ANSIBLE_DEBUG`: (optional)
+- `ANSIBLE_DEBUG`: (optional) controls if running in debug, if True will send notifications to 'egg-test'
+- `ANSIBLE_TESTING` (optional) should be set if running on server or not, switches the checking of Jira tickets to the production helpdesk to match runs on the server
 
 - `JIRA_TOKEN`: Jira API token
 - `JIRA_EMAIL`: Jira API email

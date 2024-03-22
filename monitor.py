@@ -108,7 +108,7 @@ def check_for_deletion(
     jira,
 ) -> None:
     """
-    Check for runs to delete, will be called everyday but and check for
+    Check for runs to delete, will be called everyday and check for
     runs that can be automatically deleted against the following criteria:
 
         - over X weeks old (defined from config)
@@ -133,7 +133,9 @@ def check_for_deletion(
         parent path to dx-streaming-upload log directory
     ansible_week : int
         number of weeks at which to automatically delete a run
-    server_testing : bool(?)
+    server_testing : bool
+        if running on server, if true will check for Jira tickets
+        on the production helpdesk instead of development helpdesk
     slack_token : str
         Slack API token
     pickle_file : str
@@ -226,8 +228,8 @@ def check_for_deletion(
             continue
 
         if uploaded:
-            # found uploaded run in StagingArea52 => check it is has
-            # been processed and Jira state
+            # found uploaded run in StagingArea52 => check it has
+            # been processed and its Jira state
             if (
                 project_data
                 and status.upper() == "ALL SAMPLES RELEASED"
@@ -418,7 +420,7 @@ def delete_runs(
             # don't accidentally try delete the whole of /genetics
             error = (
                 ":warning: ANSIBLE-MONITORING: Error in deleting run, full "
-                f"path does not seem valid!\nSeqeuncer dir: {seq}\nRun dir: "
+                f"path does not seem valid!\nSequencer dir: {seq}\nRun dir: "
                 f"{run}\nFull path: {run_path}. Stopping further deletion"
             )
 
