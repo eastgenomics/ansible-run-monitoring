@@ -1,9 +1,11 @@
 import json
+from time import sleep
+from typing import Union
+
 import requests
 from requests.adapters import HTTPAdapter
 from requests.auth import HTTPBasicAuth
 from urllib3.util import Retry
-from typing import Union
 
 
 class Assignee(object):
@@ -171,7 +173,9 @@ class Jira:
 
         while response.json()["isLastPage"] is False:
             query_url = url + f"?start={count}"
-            response = self.http.get(query_url, headers=self.headers, auth=self.auth)
+            response = self.http.get(
+                query_url, headers=self.headers, auth=self.auth
+            )
 
             if not response.ok:
                 raise Exception(f"Response returned error {response}")
@@ -203,7 +207,9 @@ class Jira:
             return Issue(response.json()).__dict__
         return response.json()
 
-    def search_issue(self, sequence_name: str, project_name: str = "EBH") -> dict:
+    def search_issue(
+        self, sequence_name: str, project_name: str = "EBH"
+    ) -> dict:
         """
         Search issues based on sequence_name
 
@@ -224,7 +230,7 @@ class Jira:
 
         return response.json()
 
-    def get_assay(issue: dict):
+    def get_assay(self, issue: dict):
         """
         Get assay options of an issue
         """
@@ -232,7 +238,7 @@ class Jira:
             return issue["fields"]["customfield_10070"][0].get("value", None)
         return None
 
-    def get_issue_detail(self, project: str, server: bool) -> tuple:
+    def get_issue_detail(self, run: str, server: bool) -> tuple:
         """
         Function to do an issue search and return its
         detail
@@ -250,7 +256,7 @@ class Jira:
             # debug = False / server = True
             desk = "EBH"
 
-        jira_data = self.search_issue(project, project_name=desk)
+        jira_data = self.search_issue(run, project_name=desk)
 
         # if Jira return no result / error
         if (jira_data["total"] < 1) or ("errorMessages" in jira_data):
@@ -260,28 +266,34 @@ class Jira:
 
         elif jira_data["total"] > 1:
             # more than one issue found
-            filtered_issues: list[Issue] = []
+            filtered_issues = []
 
             for result in jira_data["issues"]:
                 # remove those that start with 'RE' (replies)
-                # exclude those that're not Sequencing requestType (39)
-                if ("customfield_10010" in result["fields"]) and (
-                    not result["fields"]["summary"].startswith("RE")
-                ):
-                    if (result["fields"]["customfield_10010"] is not None) and (
-                        result["fields"]["customfield_10010"]["requestType"]["id"]
-                        == "39"
-                    ):
-                        filtered_issues.append(Issue(result))
+                # exclude those that're not sequencing issuetype
+                sequencing_run = (
+                    result["fields"].get("issuetype", {}).get("id", "")
+                    == "10179"
+                )
+                reply = result["fields"]["summary"].startswith("RE")
+
+                if sequencing_run and not reply:
+                    filtered_issues.append(Issue(result))
 
             if len(filtered_issues) == 1:
                 assay = filtered_issues[0].assay
                 status = filtered_issues[0].status.name
                 key = filtered_issues[0].key
+
+            elif len(filtered_issues) == 0:
+                assay = "No Jira ticket found after filtering"
+                status = "No Jira ticket found after filtering"
+                key = None
+
             else:
                 assay = "More than 1 Jira ticket detected"
                 status = "More than 1 Jira ticket detected"
-                key = None
+                key = "Multiple"
         else:
             # only one Jira ticket found
             issue = Issue(jira_data["issues"][0])
@@ -338,7 +350,9 @@ class Jira:
                             "content": [
                                 {
                                     "type": "paragraph",
-                                    "content": [{"text": desc, "type": "text"}],
+                                    "content": [
+                                        {"text": desc, "type": "text"}
+                                    ],
                                 }
                             ],
                         },
@@ -361,7 +375,9 @@ class Jira:
                             "content": [
                                 {
                                     "type": "paragraph",
-                                    "content": [{"text": desc, "type": "text"}],
+                                    "content": [
+                                        {"text": desc, "type": "text"}
+                                    ],
                                 }
                             ],
                         },
@@ -369,7 +385,9 @@ class Jira:
                 }
             )
 
-        response = self.http.post(url, data=payload, headers=headers, auth=self.auth)
+        response = self.http.post(
+            url, data=payload, headers=headers, auth=self.auth
+        )
 
         return response.json()
 
@@ -385,9 +403,10 @@ class Jira:
         }
 
         payload = json.dumps({"transition": {"id": transition_id}})
-
-        response = self.http.post(url, data=payload, headers=headers, auth=self.auth)
-
+        response = self.http.post(
+            url, data=payload, headers=headers, auth=self.auth
+        )
+        sleep(1)  # add tiny delay to let Jira catch up on the back end
         if response.status_code == 204:
             return "Request successful"
         else:
@@ -398,7 +417,6 @@ class Jira:
         Delete an issue
         """
         url = f"{self.api_url}/api/3/issue/{issue_id}"
-
         response = requests.request("DELETE", url, auth=self.auth)
 
         if response.status_code == 204:
