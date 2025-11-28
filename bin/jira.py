@@ -213,23 +213,49 @@ class Jira:
         """
         Search issues based on sequence_name
 
-        If cleaned: return a pre-processed issue json()
-
         Parameters:
             sequence_name: run name
             project_name: e.g. EBHD or EBH
+
+        Returns: 
+        ```
+        {
+            'issues': [
+                {
+                    'expand': 'renderedFields,names,schema,operations,editmeta,changelog,versionedRepresentations',
+                    'id': '<issue id>',
+                    'self': '<issue url>',
+                    'key': '<issue key>',
+                    'fields': {
+                        'summary': '<issue title>',
+                        'issuetype': {
+                            'self': '<self.url>/issuetype/<issuetype id>',
+                            'id': '<issuetype id>',
+                            'description': '<issuetype description>',
+                            'iconUrl': '<icon URL>',
+                            'name': '<issuetype name>',
+                            'subtask': False,
+                            'avatarId': <issuetype avatar id>,
+                            'hierarchyLevel': 0
+                        }
+                    }
+                }
+             ],
+             'isLast': True
+         }
+        ```
         """
 
         url = f"{self.api_url}/api/3/search/jql"
-        query_string = f'project = {project_name} and summary ~ "{sequence_name}"'
-        payload = json.dumps({"jql": query_cmd})
+        query = f'project = {project_name} and summary ~ "{sequence_name}"'
+        fields = ["issuetype", "summary"]
+        payload = json.dumps({"jql": query, "fields": fields, "fieldsByKeys": True})
         
         # http.get is also valid, but POST is more stable for long strings
         # See https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issue-search/#api-rest-api-3-search-jql-get
         response = self.http.post(
             url, headers=self.headers, data=payload, auth=self.auth
         )
-
         return response.json()
 
     def get_assay(self, issue: dict):
@@ -264,9 +290,8 @@ class Jira:
             helper function to check the state of an issue
             """
             issue_title = issue.get("fields", {}).get("summary")
-            issue_type = issue.get("fields", {}).get("issuetype", {}).get("id")
-            # "10179" is JIRA code for "sequencing" issue type
-            return issue_type == "10179" and issue_title[0:2] != "RE"
+            issue_type = issue.get("fields", {}).get("issuetype", {}).get("name")
+            return issue_type == "Sequencing Run" and issue_title[0:2] != "RE"
         issues = list(filter(check_issues, issues))
 
         n_issues = len(issues["issues"])
