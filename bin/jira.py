@@ -258,13 +258,18 @@ class Jira:
         )
         return response.json()
 
-    def get_assay(self, issue: dict):
+    def get_assays_from_issue(self, issue: dict):
         """
         Get assay options of an issue
         """
         if "customfield_10070" in issue["fields"]:
-            return issue["fields"]["customfield_10070"][0].get("value", None)
-        return None
+            assays = issue["fields"]["customfield_10070"]
+            # a ticket with two registered assays should NEVER happen, but this
+            # consolidates them into a single entity in case the unfortunate day ever comes
+            assay = "+".join([assay["value"] for assay in assays])
+        else:
+            assay = "No assay registered"
+        return assay
 
     def get_issue_detail(self, run: str, server: bool = True) -> tuple:
         """
@@ -305,7 +310,7 @@ class Jira:
             key = None
         elif n_issues == 1:
             issue = filtered_issues[0]
-            assay = issue["fields"]["customfield_10070"][0]["value"]
+            assay = self.get_assays_from_issue(issue)
             status = issue["fields"]["status"]["name"]
             key = issue["key"]
         else:
