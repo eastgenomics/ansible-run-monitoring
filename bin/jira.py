@@ -213,7 +213,7 @@ class Jira:
         """
         Search issues based on sequence_name
 
-        Parameters:
+        Args:
             sequence_name: run name
             project_name: e.g. EBHD or EBH
 
@@ -271,6 +271,10 @@ class Jira:
         Performs a search of issues against the EBH JIRA project (or EBDH if debug mode), 
         and returns the ticket key, status, and assay type.
         Only non-reply issues that are of the "sequencing" issue-type are returned.
+
+        Args:
+            run: run name
+            server: boolean denoting whether the job is running on the production server
 
         Returns:
             assay: e.g. TWE CEN MYE
