@@ -259,24 +259,17 @@ class Jira:
 
         issues = self.search_issue(run, project_name=project)
 
-        def check_issues(issue):
+        def check_issue(issue):
             """
-            Returns true if the issuetype is "sequencing", and if the issue
-            is not a reply (i.e. title starts with "RE").
-            Note that "10179" is the JIRA code for "sequencing" issue type
+            helper function to check the state of an issue
             """
-            try:
-                issue_title = issue["fields"]["summary"]
-            except KeyError:
-                issue_title = ""
-            try:
-                issue_type = issue["fields"]["type"]
-            except KeyError:
-                issue_type = ""
+            issue_title = issue.get("fields", {}).get("summary")
+            issue_type = issue.get("fields", {}).get("issuetype", {}).get("id")
+            # "10179" is JIRA code for "sequencing" issue type
             return issue_type == "10179" and issue_title[0:2] != "RE"
         issues = list(filter(check_issues, issues))
-        n_issues = len(issues["issues"])
 
+        n_issues = len(issues["issues"])
         if n_issues == 0: 
             assay = "No Jira ticket found"
             status = "No Jira ticket found"
