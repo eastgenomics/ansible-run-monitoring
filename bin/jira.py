@@ -293,8 +293,8 @@ class Jira:
             """
             helper function to check the state of an issue
             """
-            issue_title = issue.get("fields", {}).get("summary")
-            issue_type = issue.get("fields", {}).get("issuetype", {}).get("name")
+            issue_title = issue.get("fields", {}).get("summary", "")
+            issue_type = issue.get("fields", {}).get("issuetype", {}).get("name", "")
             return issue_type == "Sequencing Run" and issue_title[0:2] != "RE"
         issues = list(filter(check_issues, issues))
 
