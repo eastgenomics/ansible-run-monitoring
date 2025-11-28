@@ -296,15 +296,15 @@ class Jira:
             issue_title = issue.get("fields", {}).get("summary", "")
             issue_type = issue.get("fields", {}).get("issuetype", {}).get("name", "")
             return issue_type == "Sequencing Run" and issue_title[0:2] != "RE"
-        issues = list(filter(check_issues, issues))
+        filtered_issues = list(filter(check_issue, issues["issues"]))
 
-        n_issues = len(issues["issues"])
+        n_issues = len(filtered_issues)
         if n_issues == 0: 
             assay = "No Jira ticket found"
             status = "No Jira ticket found"
             key = None
         elif n_issues == 1:
-            issue = Issue(jira_data["issues"][0])
+            issue = Issue(filtered_issues[0])
             assay = issue.assay
             status = issue.status.name
             key = issue.key
