@@ -220,12 +220,14 @@ class Jira:
             project_name: e.g. EBHD or EBH
         """
 
-        url = f"{self.api_url}/api/3/search"
-        query_cmd = f'project = {project_name} and summary ~ "{sequence_name}"'
-
-        query = {"jql": query_cmd}
-        response = self.http.get(
-            url, headers=self.headers, params=query, auth=self.auth
+        url = f"{self.api_url}/api/3/search/jql"
+        query_string = f'project = {project_name} and summary ~ "{sequence_name}"'
+        payload = json.dumps({"jql": query_cmd})
+        
+        # http.get is also valid, but POST is more stable for long strings
+        # See https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issue-search/#api-rest-api-3-search-jql-get
+        response = self.http.post(
+            url, headers=self.headers, data=payload, auth=self.auth
         )
 
         return response.json()
@@ -238,10 +240,11 @@ class Jira:
             return issue["fields"]["customfield_10070"][0].get("value", None)
         return None
 
-    def get_issue_detail(self, run: str, server: bool) -> tuple:
+    def get_issue_detail(self, run: str, server: bool = True) -> tuple:
         """
-        Function to do an issue search and return its
-        detail
+        Performs a search of issues against the EBH JIRA project (or EBDH if debug mode), 
+        and returns the ticket key, status, and assay type.
+        Only non-reply issues that are of the "sequencing" issue-type are returned.
 
         Returns:
             assay: e.g. TWE CEN MYE
@@ -250,57 +253,43 @@ class Jira:
         """
 
         if self.debug and not server:
-            # debug = True and server = False
-            desk = "EBHD"
+            project = "EBHD"
         else:
-            # debug = False / server = True
-            desk = "EBH"
+            project = "EBH"
 
-        jira_data = self.search_issue(run, project_name=desk)
+        issues = self.search_issue(run, project_name=project)
 
-        # if Jira return no result / error
-        if (jira_data["total"] < 1) or ("errorMessages" in jira_data):
+        def check_issues(issue):
+            """
+            Returns true if the issuetype is "sequencing", and if the issue
+            is not a reply (i.e. title starts with "RE").
+            Note that "10179" is the JIRA code for "sequencing" issue type
+            """
+            try:
+                issue_title = issue["fields"]["summary"]
+            except KeyError:
+                issue_title = ""
+            try:
+                issue_type = issue["fields"]["type"]
+            except KeyError:
+                issue_type = ""
+            return issue_type == "10179" and issue_title[0:2] != "RE"
+        issues = list(filter(check_issues, issues))
+        n_issues = len(issues["issues"])
+
+        if n_issues == 0: 
             assay = "No Jira ticket found"
             status = "No Jira ticket found"
             key = None
-
-        elif jira_data["total"] > 1:
-            # more than one issue found
-            filtered_issues = []
-
-            for result in jira_data["issues"]:
-                # remove those that start with 'RE' (replies)
-                # exclude those that're not sequencing issuetype
-                sequencing_run = (
-                    result["fields"].get("issuetype", {}).get("id", "")
-                    == "10179"
-                )
-                reply = result["fields"]["summary"].startswith("RE")
-
-                if sequencing_run and not reply:
-                    filtered_issues.append(Issue(result))
-
-            if len(filtered_issues) == 1:
-                assay = filtered_issues[0].assay
-                status = filtered_issues[0].status.name
-                key = filtered_issues[0].key
-
-            elif len(filtered_issues) == 0:
-                assay = "No Jira ticket found after filtering"
-                status = "No Jira ticket found after filtering"
-                key = None
-
-            else:
-                assay = "More than 1 Jira ticket detected"
-                status = "More than 1 Jira ticket detected"
-                key = "Multiple"
-        else:
-            # only one Jira ticket found
+        elif n_issues == 1:
             issue = Issue(jira_data["issues"][0])
             assay = issue.assay
             status = issue.status.name
             key = issue.key
-
+        else:
+            assay = "More than 1 Jira ticket detected"
+            status = "More than 1 Jira ticket detected"
+            key = "Multiple"
         return assay, status, key
 
     def create_issue(
