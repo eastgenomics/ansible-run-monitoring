@@ -271,7 +271,7 @@ class Jira:
             assay = "No assay registered"
         return assay
 
-    def get_issue_detail(self, run: str, server: bool = True) -> tuple:
+    def get_issue_detail(self, run: str) -> tuple:
         """
         Performs a search of issues against the EBH JIRA project (or EBDH if debug mode), 
         and returns the ticket key, status, and assay type.
@@ -279,7 +279,6 @@ class Jira:
 
         Args:
             run: run name
-            server: boolean denoting whether the job is running on the production server
 
         Returns:
             assay: e.g. TWE CEN MYE
@@ -287,7 +286,7 @@ class Jira:
             key: e.g. EBH-981 or None
         """
 
-        if self.debug and not server:
+        if self.debug:
             project = "EBHD"
         else:
             project = "EBH"

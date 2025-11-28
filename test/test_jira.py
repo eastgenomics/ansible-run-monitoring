@@ -13,10 +13,10 @@ URL = os.environ["JIRA_API_URL"]
 ONE_SAMPLE = "220304_A01295_0063_AH7TFVDMXY"
 MULTIPLE_SAMPLE = "ansible"
 
-jira = Jira(TOKEN, EMAIL, URL, True)
 
 class TestJira(unittest.TestCase):
     def test_jira_search_issue_function(self) -> None:
+        jira = Jira(TOKEN, EMAIL, URL, True)
         data = jira.search_issue(ONE_SAMPLE, "EBHD")
         datab = jira.search_issue(MULTIPLE_SAMPLE, "EBHD")
 
@@ -41,8 +41,9 @@ class TestJira(unittest.TestCase):
             )
 
     def test_jira_get_issue_detail_function(self) -> None:
+        jira = Jira(TOKEN, EMAIL, URL, False)
         # Test run with 1 known ticket
-        assay, status, key = jira.get_issue_detail(ONE_SAMPLE, True)
+        assay, status, key = jira.get_issue_detail(ONE_SAMPLE)
         self.assertEqual(
             [assay, status.upper(), key],
             ["TWE", "ALL SAMPLES RELEASED", "EBH-922"],
@@ -50,7 +51,7 @@ class TestJira(unittest.TestCase):
         )
 
         # Exclude ticket with RequestType != SequencingType
-        assay, status, key = jira.get_issue_detail("230223_A01295_0161_BHVH73DRX2", True)
+        assay, status, key = jira.get_issue_detail("230223_A01295_0161_BHVH73DRX2")
         self.assertEqual(
             [assay, status, key],
             ["CEN", "All samples released", "EBH-1568"],
