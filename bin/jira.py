@@ -128,7 +128,7 @@ class Jira:
     Jira Class Wrapper for Jira API request
     """
 
-    headers = {"Accept": "application/json"}
+    headers = {"Accept": "application/json", "Content-Type": "application/json"}
 
     http = requests.Session()
     retries = Retry(total=5, backoff_factor=10, method_whitelist=["POST"])
@@ -248,7 +248,7 @@ class Jira:
 
         url = f"{self.api_url}/api/3/search/jql"
         query = f'project = {project_name} and summary ~ "{sequence_name}"'
-        fields = ["issuetype", "summary"]
+        fields = ["issuetype", "summary", "status", "customfield_10070"]
         payload = json.dumps({"jql": query, "fields": fields, "fieldsByKeys": True})
         
         # http.get is also valid, but POST is more stable for long strings
@@ -287,7 +287,7 @@ class Jira:
         else:
             project = "EBH"
 
-        issues = self.search_issue(run, project_name=project)
+        issues = self.search_issue(run, project)
 
         def check_issue(issue):
             """
@@ -304,10 +304,10 @@ class Jira:
             status = "No Jira ticket found"
             key = None
         elif n_issues == 1:
-            issue = Issue(filtered_issues[0])
-            assay = issue.assay
-            status = issue.status.name
-            key = issue.key
+            issue = filtered_issues[0]
+            assay = issue["fields"]["customfield_10070"][0]["value"]
+            status = issue["fields"]["status"]["name"]
+            key = issue["key"]
         else:
             assay = "More than 1 Jira ticket detected"
             status = "More than 1 Jira ticket detected"
