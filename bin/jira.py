@@ -265,7 +265,7 @@ class Jira:
         if "customfield_10070" in issue["fields"]:
             assays = issue["fields"]["customfield_10070"]
             # a ticket with two registered assays should NEVER happen, but this
-            # consolidates them into a single entity in case the unfortunate day ever comes
+            # consolidates them into a single entity should the unfortunate day ever come
             assay = "+".join([assay["value"] for assay in assays])
         else:
             assay = "No assay registered"
