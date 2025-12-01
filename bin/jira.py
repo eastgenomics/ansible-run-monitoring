@@ -237,7 +237,22 @@ class Jira:
                             'subtask': False,
                             'avatarId': <issuetype avatar id>,
                             'hierarchyLevel': 0
-                        }
+                        },
+                        'customfield_10070': [{'self': '<url>', 'value': '<assay acronym>', 'id': '<jira field value id>'}],
+                        'status' : {
+                            'self' '<url>',
+                            'description': '<description about status meaning>',
+                            'iconUrl': '<url>',
+                            'name': '<status name>'
+                            'id': '<status ID>',
+                            'statusCategory': {
+                                'self': '<url>',
+                                'id': <status ID>,
+                                'key': '<status category name>',
+                                'colorName': 'green',
+                                'name': 'Done'
+                                }
+                            }
                     }
                 }
              ],
