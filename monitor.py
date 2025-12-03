@@ -209,7 +209,7 @@ def check_for_deletion(
         old_enough = check_age(created_date, today, ansible_week)
 
         # get run Jira details
-        assay, status, key = jira.get_issue_detail(run, server_testing)
+        assay, status, key = jira.get_issue_detail(run)
 
         delete = False
 
@@ -399,7 +399,7 @@ def delete_runs(
 
     for run, values in runs_pickle.items():
         # last check to see if Jira status is still valid for deleting
-        _, status, _ = jira.get_issue_detail(run, server_testing)
+        _, status, _ = jira.get_issue_detail(run)
 
         seq = values["seq"].strip()
         key = values["key"].strip()
