@@ -1,6 +1,7 @@
 __pycache__
 .pytest_cache
 .vscode
+venv
 env
 test/genetics
 test/log

@@ -128,7 +128,7 @@ class Jira:
     Jira Class Wrapper for Jira API request
     """
 
-    headers = {"Accept": "application/json"}
+    headers = {"Accept": "application/json", "Content-Type": "application/json"}
 
     http = requests.Session()
     retries = Retry(total=5, backoff_factor=10, method_whitelist=["POST"])
@@ -213,35 +213,87 @@ class Jira:
         """
         Search issues based on sequence_name
 
-        If cleaned: return a pre-processed issue json()
-
-        Parameters:
+        Args:
             sequence_name: run name
             project_name: e.g. EBHD or EBH
+
+        Returns: 
+        ```
+        {
+            'issues': [
+                {
+                    'expand': 'renderedFields,names,schema,operations,editmeta,changelog,versionedRepresentations',
+                    'id': '<issue id>',
+                    'self': '<issue url>',
+                    'key': '<issue key>',
+                    'fields': {
+                        'summary': '<issue title>',
+                        'issuetype': {
+                            'self': '<self.url>/issuetype/<issuetype id>',
+                            'id': '<issuetype id>',
+                            'description': '<issuetype description>',
+                            'iconUrl': '<icon URL>',
+                            'name': '<issuetype name>',
+                            'subtask': False,
+                            'avatarId': <issuetype avatar id>,
+                            'hierarchyLevel': 0
+                        },
+                        'customfield_10070': [{'self': '<url>', 'value': '<assay acronym>', 'id': '<jira field value id>'}],
+                        'status' : {
+                            'self': '<url>',
+                            'description': '<description about status meaning>',
+                            'iconUrl': '<url>',
+                            'name': '<status name>'
+                            'id': '<status ID>',
+                            'statusCategory': {
+                                'self': '<url>',
+                                'id': <status ID>,
+                                'key': '<status category name>',
+                                'colorName': 'green',
+                                'name': 'Done'
+                                }
+                            }
+                    }
+                }
+             ],
+             'isLast': True
+         }
+        ```
         """
 
-        url = f"{self.api_url}/api/3/search"
-        query_cmd = f'project = {project_name} and summary ~ "{sequence_name}"'
-
-        query = {"jql": query_cmd}
-        response = self.http.get(
-            url, headers=self.headers, params=query, auth=self.auth
+        url = f"{self.api_url}/api/3/search/jql"
+        query = f'project = {project_name} and summary ~ "{sequence_name}"'
+        fields = ["issuetype", "summary", "status", "customfield_10070"]
+        payload = json.dumps({"jql": query, "fields": fields, "fieldsByKeys": True})
+        
+        # http.get is also valid, but POST is more stable for long strings
+        # See https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issue-search/#api-rest-api-3-search-jql-get
+        response = self.http.post(
+            url, headers=self.headers, data=payload, auth=self.auth
         )
-
         return response.json()
 
-    def get_assay(self, issue: dict):
+    def get_assays_from_issue(self, issue: dict):
         """
         Get assay options of an issue
         """
         if "customfield_10070" in issue["fields"]:
-            return issue["fields"]["customfield_10070"][0].get("value", None)
-        return None
+            assays = issue["fields"]["customfield_10070"]
+            # a ticket with two registered assays should NEVER happen, but this
+            # consolidates them into a single entity should the unfortunate day ever come
+            assay = "+".join([assay["value"] for assay in assays])
+        else:
+            assay = "No assay registered"
+        return assay
 
-    def get_issue_detail(self, run: str, server: bool) -> tuple:
+    def get_issue_detail(self, run: str) -> tuple:
         """
-        Function to do an issue search and return its
-        detail
+        Performs a search of issues against the EBH JIRA project (or EBDH if debug mode), 
+        and returns the ticket key, status, and assay type.
+        Only non-reply issues that are of the "sequencing" issue-type are returned.
+
+        Args:
+            run: run name
 
         Returns:
             assay: e.g. TWE CEN MYE
@@ -249,58 +301,36 @@ class Jira:
             key: e.g. EBH-981 or None
         """
 
-        if self.debug and not server:
-            # debug = True and server = False
-            desk = "EBHD"
+        if self.debug:
+            project = "EBHD"
         else:
-            # debug = False / server = True
-            desk = "EBH"
+            project = "EBH"
 
-        jira_data = self.search_issue(run, project_name=desk)
+        issues = self.search_issue(run, project)
 
-        # if Jira return no result / error
-        if (jira_data["total"] < 1) or ("errorMessages" in jira_data):
+        def check_issue(issue):
+            """
+            helper function to check the state of an issue
+            """
+            issue_title = issue.get("fields", {}).get("summary", "")
+            issue_type = issue.get("fields", {}).get("issuetype", {}).get("name", "")
+            return issue_type == "Sequencing Run" and issue_title[0:2] != "RE"
+        filtered_issues = list(filter(check_issue, issues["issues"]))
+
+        n_issues = len(filtered_issues)
+        if n_issues == 0: 
             assay = "No Jira ticket found"
             status = "No Jira ticket found"
             key = None
-
-        elif jira_data["total"] > 1:
-            # more than one issue found
-            filtered_issues = []
-
-            for result in jira_data["issues"]:
-                # remove those that start with 'RE' (replies)
-                # exclude those that're not sequencing issuetype
-                sequencing_run = (
-                    result["fields"].get("issuetype", {}).get("id", "")
-                    == "10179"
-                )
-                reply = result["fields"]["summary"].startswith("RE")
-
-                if sequencing_run and not reply:
-                    filtered_issues.append(Issue(result))
-
-            if len(filtered_issues) == 1:
-                assay = filtered_issues[0].assay
-                status = filtered_issues[0].status.name
-                key = filtered_issues[0].key
-
-            elif len(filtered_issues) == 0:
-                assay = "No Jira ticket found after filtering"
-                status = "No Jira ticket found after filtering"
-                key = None
-
-            else:
-                assay = "More than 1 Jira ticket detected"
-                status = "More than 1 Jira ticket detected"
-                key = "Multiple"
+        elif n_issues == 1:
+            issue = filtered_issues[0]
+            assay = self.get_assays_from_issue(issue)
+            status = issue["fields"]["status"]["name"]
+            key = issue["key"]
         else:
-            # only one Jira ticket found
-            issue = Issue(jira_data["issues"][0])
-            assay = issue.assay
-            status = issue.status.name
-            key = issue.key
-
+            assay = "More than 1 Jira ticket detected"
+            status = "More than 1 Jira ticket detected"
+            key = "Multiple"
         return assay, status, key
 
     def create_issue(
