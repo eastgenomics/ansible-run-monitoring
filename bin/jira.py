@@ -240,7 +240,7 @@ class Jira:
                         },
                         'customfield_10070': [{'self': '<url>', 'value': '<assay acronym>', 'id': '<jira field value id>'}],
                         'status' : {
-                            'self' '<url>',
+                            'self': '<url>',
                             'description': '<description about status meaning>',
                             'iconUrl': '<url>',
                             'name': '<status name>'
