@@ -295,16 +295,16 @@ def check_for_deletion(
                 "size": run_size,
             }
 
-    if to_delete and today.isoweekday() == 1:
+    if to_delete:
         # found more than one run to delete and today is Monday =>
         # update the pickle file for deletion on Wednesday
         log.info("Writing runs flagged to delete into pickle file")
-        with open(pickle_file, "wb") as f:
+        with open("pickle.p", "wb") as f:
             pickle.dump(to_delete, f)
 
         # alert us that some runs will be deleted on the next Wednesday
         post_message_to_slack(
-            channel="egg-alerts",
+            channel="egg-test",
             token=slack_token,
             data=to_delete,
             debug=debug,
@@ -315,11 +315,11 @@ def check_for_deletion(
             action="delete",
         )
 
-    if manual_review and today.isoweekday() == 1:
+    if manual_review:
         # found more than one run requiring manually reviewing, only
         # send alerts for these on a Monday morning to not get too spammy
         post_message_to_slack(
-            channel="egg-alerts",
+            channel="egg-test",
             token=slack_token,
             data=manual_review,
             debug=debug,
@@ -378,14 +378,14 @@ def delete_runs(
     init_usage = shutil.disk_usage(genetics_dir)
     today = datetime.today()
 
-    if today.isoweekday() != 3:
-        # today is not a Wednesday => don't do anything
-        log.info(
-            f"Today is {today.strftime('%A')} therefore no "
-            "deletion will be performed"
-        )
+    #if today.isoweekday() != 3:
+    #    # today is not a Wednesday => don't do anything
+    #    log.info(
+    #        f"Today is {today.strftime('%A')} therefore no "
+    #        "deletion will be performed"
+    #    )
 
-        return
+    #    return
 
     runs_pickle = read_or_new_pickle(pickle_file)
 
@@ -428,7 +428,7 @@ def delete_runs(
 
             post_simple_message_to_slack(
                 message=error,
-                channel="egg-alerts",
+                channel="egg-test",
                 slack_token=slack_token,
                 debug=debug,
             )
@@ -437,7 +437,7 @@ def delete_runs(
 
         try:
             log.info(f"DELETING {genetics_dir}/{seq}/{run}")
-            shutil.rmtree(f"{genetics_dir}/{seq}/{run}")
+            #shutil.rmtree(f"{genetics_dir}/{seq}/{run}")
 
             deleted_details[run] = {
                 "seq": seq,
@@ -466,91 +466,91 @@ def delete_runs(
 
             post_simple_message_to_slack(
                 message=msg,
-                channel="egg-alerts",
+                channel="egg-test",
                 slack_token=slack_token,
                 debug=debug,
             )
 
             sys.exit("END SCRIPT")
 
-    if deleted_details:
-        # something deleted => create Jira ticket to acknowledge
+    #if deleted_details:
+    #    # something deleted => create Jira ticket to acknowledge
 
-        # get after deletion disk usage
-        post_usage = shutil.disk_usage(genetics_dir)
-        # make datetime into str type
-        jira_date = today.strftime("%d/%m/%Y")
+    #    # get after deletion disk usage
+    #    post_usage = shutil.disk_usage(genetics_dir)
+    #    # make datetime into str type
+    #    jira_date = today.strftime("%d/%m/%Y")
 
-        # format disk usage for Jira issue description
-        init_total = round(init_usage[0] / 1024 / 1024 / 1024, 2)
-        init_used = round(init_usage[1] / 1024 / 1024 / 1024, 2)
-        init_percent = round((init_usage[1] / init_usage[0]) * 100, 2)
+    #    # format disk usage for Jira issue description
+    #    init_total = round(init_usage[0] / 1024 / 1024 / 1024, 2)
+    #    init_used = round(init_usage[1] / 1024 / 1024 / 1024, 2)
+    #    init_percent = round((init_usage[1] / init_usage[0]) * 100, 2)
 
-        p_total = round(post_usage[0] / 1024 / 1024 / 1024, 2)
-        p_used = round(post_usage[1] / 1024 / 1024 / 1024, 2)
-        p_percent = round((post_usage[1] / post_usage[0]) * 100, 2)
+    #    p_total = round(post_usage[0] / 1024 / 1024 / 1024, 2)
+    #    p_used = round(post_usage[1] / 1024 / 1024 / 1024, 2)
+    #    p_percent = round((post_usage[1] / post_usage[0]) * 100, 2)
 
-        # format deleted run for issue description
-        jira_data = [
-            f"{k} in /genetics/{v['seq']}" for k, v in deleted_details.items()
-        ]
+    #    # format deleted run for issue description
+    #    jira_data = [
+    #        f"{k} in /genetics/{v['seq']}" for k, v in deleted_details.items()
+    #    ]
 
-        # description body
-        body = "\n".join(jira_data)
+    #    # description body
+    #    body = "\n".join(jira_data)
 
-        desc = f"Runs deleted on {jira_date}\n"
+    #    desc = f"Runs deleted on {jira_date}\n"
 
-        # all disk space data
-        disk_usage = (
-            "\n/genetics disk usage before: "
-            f"{init_used} / {init_total} {init_percent}%"
-            "\n/genetics disk usage after: "
-            f"{p_used} / {p_total} {p_percent}%"
-        )
+    #    # all disk space data
+    #    disk_usage = (
+    #        "\n/genetics disk usage before: "
+    #        f"{init_used} / {init_total} {init_percent}%"
+    #        "\n/genetics disk usage after: "
+    #        f"{p_used} / {p_total} {p_percent}%"
+    #    )
 
-        desc += body + disk_usage
+    #    desc += body + disk_usage
 
-        # create Jira issue
-        # issue type for acknowledgement 10124
-        # helpdesk 10042 for debug 10040 for prod
+    #    # create Jira issue
+    #    # issue type for acknowledgement 10124
+    #    # helpdesk 10042 for debug 10040 for prod
 
-        log.info("Creating Jira acknowledgement issue")
-        issue_title = (
-            f"{jira_date} Automated deletion of runs from ansible server"
-        )
-        response = jira.create_issue(
-            summary=issue_title,
-            issue_id=10124,
-            project_id=jira_project_id,
-            reporter_id=jira_reporter_id,
-            priority_id=3,
-            desc=desc,
-            assay=False,
-        )
+    #    log.info("Creating Jira acknowledgement issue")
+    #    issue_title = (
+    #        f"{jira_date} Automated deletion of runs from ansible server"
+    #    )
+    #    response = jira.create_issue(
+    #        summary=issue_title,
+    #        issue_id=10124,
+    #        project_id=jira_project_id,
+    #        reporter_id=jira_reporter_id,
+    #        priority_id=3,
+    #        desc=desc,
+    #        assay=False,
+    #    )
 
-        if "id" in response:
-            # log the raised issue key for reference in future
-            issue_key = response["key"]
-            log.info(f"{issue_key} {jira_project_id}")
-        else:
-            # if jira ticket creation issue
-            # send msg to Slack - stop script
-            err_msg = response["errors"]
-            msg = (
-                ":warning:"
-                "ANSIBLE-MONITORING: ERROR with creating Jira ticket!"
-            )
-            msg += f"\n`{err_msg}`"
+    #    if "id" in response:
+    #        # log the raised issue key for reference in future
+    #        issue_key = response["key"]
+    #        log.info(f"{issue_key} {jira_project_id}")
+    #    else:
+    #        # if jira ticket creation issue
+    #        # send msg to Slack - stop script
+    #        err_msg = response["errors"]
+    #        msg = (
+    #            ":warning:"
+    #            "ANSIBLE-MONITORING: ERROR with creating Jira ticket!"
+    #        )
+    #        msg += f"\n`{err_msg}`"
 
-            post_simple_message_to_slack(
-                msg,
-                "egg-alerts",
-                slack_token,
-                debug,
-            )
+    #        post_simple_message_to_slack(
+    #            msg,
+    #            "egg-test",
+    #            slack_token,
+    #            debug,
+    #        )
 
-            log.error(response)
-            sys.exit("END SCRIPT")
+    #        log.error(response)
+    #        sys.exit("END SCRIPT")
 
     # write to /log just for own record
     if os.path.exists("/log/monitoring"):
@@ -569,10 +569,10 @@ def main():
     # log debug status
     if env.debug:
         log.info("Running in debug mode")
-        env.pickle_file = f"{env.pickle_file}/ansible_dict.test.pickle"
+        env.pickle_file = f"pickle.p"
     else:
         log.info("Running in PRODUCTION mode")
-        env.pickle_file = f"{env.pickle_file}/ansible_dict.pickle"
+        env.pickle_file = f"pickle.p"
 
     # dxpy login
     if not dx_login(env.dnanexus_token):
@@ -580,7 +580,7 @@ def main():
 
         post_simple_message_to_slack(
             message,
-            "egg-alerts",
+            "egg-test",
             env.slack_token,
             env.debug,
         )
@@ -593,7 +593,7 @@ def main():
 
         post_simple_message_to_slack(
             message,
-            "egg-alerts",
+            "egg-test",
             env.slack_token,
             env.debug,
         )
